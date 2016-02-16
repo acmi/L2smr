@@ -788,9 +788,6 @@ public class Controller implements Initializable {
         if (file == null)
             return;
 
-        if (file.exists() && !showConfirm(Alert.AlertType.WARNING, "Confirm saving", null, file.getName() + " already exists.\nOverwrite?"))
-            return;
-
         longTask(new Task<Void>() {
             @Override
             protected Void call() throws Exception {
@@ -932,34 +929,55 @@ public class Controller implements Initializable {
         if (actors.isEmpty())
             return;
 
-        FileChooser fileChooser = new FileChooser();
-        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Unreal text", "*.t3d"));
-        fileChooser.setTitle("Open");
-        File file = fileChooser.showOpenDialog(getStage());
-        if (file == null)
-            return;
+        if (showConfirm(Alert.AlertType.CONFIRMATION, "Export", null, "Separate? (new file per Actor)")) {
+            DirectoryChooser directoryChooser = new DirectoryChooser();
+            directoryChooser.setTitle("Select save folder");
+            File dir = directoryChooser.showDialog(getStage());
+            if (dir == null)
+                return;
 
-        if (file.exists() && !showConfirm(Alert.AlertType.WARNING, "Confirm saving", null, file.getName() + " already exists.\nOverwrite?"))
-            return;
-
-        longTask(new Task<Void>() {
-            @Override
-            protected Void call() throws Exception {
-                StringBuilder sb = new StringBuilder("Begin Map");
-                T3d t3d = new T3d(new ObjectFactory(classLoader.get()));
-                try (UnrealPackageFile up = new UnrealPackageFile(new File(mapsDir.get(), unrChooser.getSelectionModel().getSelectedItem()), false)) {
-                    actors.stream()
-                            .map(actor -> up.getExportTable().get(actor.getInd()))
-                            .forEach(entry -> sb.append(Util.newLine()).append(t3d.toT3d(entry, 0)));
+            longTask(new Task<Void>() {
+                @Override
+                protected Void call() throws Exception {
+                    T3d t3d = new T3d(new ObjectFactory(classLoader.get()));
+                    try (UnrealPackageFile up = new UnrealPackageFile(new File(mapsDir.get(), unrChooser.getSelectionModel().getSelectedItem()), false)) {
+                        for (Actor actor : actors) {
+                            UnrealPackageFile.ExportEntry entry = up.getExportTable().get(actor.getInd());
+                            try (Writer fos = new FileWriter(new File(dir, entry.getObjectName().getName() + ".t3d"))) {
+                                fos.write(t3d.toT3d(entry, 0).toString());
+                            }
+                        }
+                    }
+                    return null;
                 }
-                sb.append(newLine()).append("End Map");
+            }, e -> showAlert(Alert.AlertType.WARNING, "Export failed", e.getClass().getSimpleName(), e.getMessage()));
+        } else {
+            FileChooser fileChooser = new FileChooser();
+            fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Unreal text", "*.t3d"));
+            fileChooser.setTitle("Save");
+            File file = fileChooser.showSaveDialog(getStage());
+            if (file == null)
+                return;
 
-                try (Writer fos = new FileWriter(file)) {
-                    fos.write(sb.toString());
+            longTask(new Task<Void>() {
+                @Override
+                protected Void call() throws Exception {
+                    StringBuilder sb = new StringBuilder("Begin Map");
+                    T3d t3d = new T3d(new ObjectFactory(classLoader.get()));
+                    try (UnrealPackageFile up = new UnrealPackageFile(new File(mapsDir.get(), unrChooser.getSelectionModel().getSelectedItem()), false)) {
+                        actors.stream()
+                                .map(actor -> up.getExportTable().get(actor.getInd()))
+                                .forEach(entry -> sb.append(Util.newLine()).append(t3d.toT3d(entry, 0)));
+                    }
+                    sb.append(newLine()).append("End Map");
+
+                    try (Writer fos = new FileWriter(file)) {
+                        fos.write(sb.toString());
+                    }
+                    return null;
                 }
-                return null;
-            }
-        }, e -> showAlert(Alert.AlertType.WARNING, "Export failed", e.getClass().getSimpleName(), e.getMessage()));
+            }, e -> showAlert(Alert.AlertType.WARNING, "Export failed", e.getClass().getSimpleName(), e.getMessage()));
+        }
     }
 
     private void showHelp() {
