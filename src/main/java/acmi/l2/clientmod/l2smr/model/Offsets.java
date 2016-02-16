@@ -21,7 +21,7 @@
  */
 package acmi.l2.clientmod.l2smr.model;
 
-public class Offsets {
+public class Offsets implements Cloneable {
     public int mesh;
     public int meshSize;
 
@@ -57,5 +57,14 @@ public class Offsets {
                 ", zoneRenderState=0x" + Integer.toHexString(zoneRenderState) +
                 ", zoneRenderStateCount=" + zoneRenderStateCount +
                 '}';
+    }
+
+    @Override
+    protected Offsets clone() {
+        try {
+            return (Offsets) super.clone();
+        } catch (CloneNotSupportedException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

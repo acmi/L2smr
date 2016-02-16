@@ -28,7 +28,7 @@ import java.util.Objects;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class L2Map {
-    private float x,y,z;
+    private float x, y, z;
     private List<Actor> staticMeshes;
 
     public L2Map() {

@@ -65,34 +65,34 @@ public class ImportExportDialog {
         return dialog.showAndWait();
     }
 
-    public float getX(){
-        try{
+    public float getX() {
+        try {
             return Float.parseFloat(x.getText());
-        }catch (Exception e){
+        } catch (Exception e) {
             return 0;
         }
     }
 
-    public float getY(){
-        try{
+    public float getY() {
+        try {
             return Float.parseFloat(y.getText());
-        }catch (Exception e){
+        } catch (Exception e) {
             return 0;
         }
     }
 
-    public float getZ(){
-        try{
+    public float getZ() {
+        try {
             return Float.parseFloat(z.getText());
-        }catch (Exception e){
+        } catch (Exception e) {
             return 0;
         }
     }
 
-    public double getAngle(){
-        try{
+    public double getAngle() {
+        try {
             return Double.parseDouble(angle.getText());
-        }catch (Exception e){
+        } catch (Exception e) {
             return 0;
         }
     }

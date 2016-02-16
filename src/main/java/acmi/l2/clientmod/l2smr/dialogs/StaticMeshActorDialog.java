@@ -51,27 +51,27 @@ public class StaticMeshActorDialog {
         return dialog.showAndWait();
     }
 
-    public String getActorClass(){
+    public String getActorClass() {
         return actorClass.getText();
     }
 
-    public boolean isRotation(){
+    public boolean isRotation() {
         return rotation.isSelected();
     }
 
-    public boolean isScale(){
+    public boolean isScale() {
         return scale.isSelected();
     }
 
-    public boolean isScale3d(){
+    public boolean isScale3d() {
         return scale3d.isSelected();
     }
 
-    public boolean isRotating(){
+    public boolean isRotating() {
         return rotating.isSelected();
     }
 
-    public boolean isZoneRenderState(){
+    public boolean isZoneRenderState() {
         return zoneRenderState.isSelected();
     }
 }

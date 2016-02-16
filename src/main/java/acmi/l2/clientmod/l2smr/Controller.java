@@ -28,7 +28,11 @@ import acmi.l2.clientmod.l2smr.dialogs.StaticMeshActorDialog;
 import acmi.l2.clientmod.l2smr.model.Actor;
 import acmi.l2.clientmod.l2smr.model.L2Map;
 import acmi.l2.clientmod.l2smr.model.Offsets;
+import acmi.l2.clientmod.unreal.classloader.FolderPackageLoader;
+import acmi.l2.clientmod.unreal.classloader.UnrealClassLoader;
+import acmi.l2.clientmod.unreal.objectfactory.ObjectFactory;
 import acmi.l2.clientmod.util.AutoCompleteComboBoxListener;
+import acmi.l2.clientmod.util.Util;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
@@ -41,6 +45,8 @@ import javafx.fxml.Initializable;
 import javafx.scene.control.*;
 import javafx.scene.control.Button;
 import javafx.scene.control.TextField;
+import javafx.scene.input.KeyCombination;
+import javafx.scene.input.KeyEvent;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
@@ -54,11 +60,11 @@ import java.net.URL;
 import java.util.*;
 import java.util.List;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static acmi.l2.clientmod.util.Util.*;
+import static javafx.scene.input.KeyCombination.keyCombination;
 
 @SuppressWarnings({"ConstantConditions", "unused"})
 public class Controller implements Initializable {
@@ -150,17 +156,23 @@ public class Controller implements Initializable {
     private final ObjectProperty<File> l2Dir = new SimpleObjectProperty<>();
     private final ObjectProperty<File> mapsDir = new SimpleObjectProperty<>();
     private final ObjectProperty<File> staticMeshDir = new SimpleObjectProperty<>();
+    private final ObjectProperty<File> systemDir = new SimpleObjectProperty<>();
     private final ListProperty<Actor> actors = new SimpleListProperty<>();
     private final ObjectProperty<File> usx = new SimpleObjectProperty<>();
     private final StringProperty umodelPath = new SimpleStringProperty();
-    private Stage stage;
+    private final ObjectProperty<UnrealClassLoader> classLoader = new SimpleObjectProperty<>();
+    private final ObjectProperty<Stage> stage = new SimpleObjectProperty<>(this, "");
 
     public Stage getStage() {
+        return stage.get();
+    }
+
+    public ObjectProperty<Stage> stageProperty() {
         return stage;
     }
 
     public void setStage(Stage stage) {
-        this.stage = stage;
+        this.stage.set(stage);
     }
 
     public File getL2Dir() {
@@ -189,11 +201,14 @@ public class Controller implements Initializable {
 
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
+        stageProperty().addListener(observable -> initializeKeyCombinations());
+
         this.l2Path.textProperty().bind(Bindings.createStringBinding(() -> Controller.this.l2Dir.getValue() != null ?
                 Controller.this.l2Dir.getValue().getAbsolutePath() : "", Controller.this.l2Dir));
 
         initializeUnr();
         initializeUsx();
+        initializeT3d();
 
         this.filterPane.setExpanded(false);
         this.filterPane.setDisable(true);
@@ -224,6 +239,25 @@ public class Controller implements Initializable {
                 actors, filterStaticMesh.textProperty(),
                 filterX.textProperty(), filterY.textProperty(), filterZ.textProperty(), filterRange.textProperty(),
                 rotatable.selectedProperty(), scalable.selectedProperty(), rotating.selectedProperty()));
+    }
+
+    private void initializeKeyCombinations() {
+        Map<KeyCombination, Runnable> keyCombinations = new HashMap<>();
+        keyCombinations.put(keyCombination("F1"), this::showHelp);
+        keyCombinations.put(keyCombination("CTRL+O"), this::chooseL2Folder);
+        keyCombinations.put(keyCombination("CTRL+U"), this::selectUmodel);
+        keyCombinations.put(keyCombination("CTRL+E"), this::exportSM);
+        keyCombinations.put(keyCombination("CTRL+I"), this::importSM);
+        keyCombinations.put(keyCombination("CTRL+T"), this::exportSMT3d);
+
+        getStage().getScene().addEventFilter(KeyEvent.KEY_PRESSED, event -> keyCombinations.entrySet()
+                .stream()
+                .filter(e -> e.getKey().match(event))
+                .findAny()
+                .ifPresent(e -> {
+                    e.getValue().run();
+                    event.consume();
+                }));
     }
 
     private void initializeUnr() {
@@ -454,11 +488,27 @@ public class Controller implements Initializable {
         this.createNew.disableProperty().bind(b);
     }
 
+    private void initializeT3d() {
+        this.systemDir.bind(Bindings.createObjectBinding(() -> {
+            if (Controller.this.l2Dir.getValue() == null)
+                return null;
+            return Arrays.stream(Controller.this.l2Dir.getValue().listFiles())
+                    .filter(path -> path.isDirectory() && path.getName().equalsIgnoreCase("system"))
+                    .findAny()
+                    .orElse(null);
+        }, Controller.this.l2Dir));
+        this.classLoader.bind(Bindings.createObjectBinding(() -> {
+            if (systemDir.get() == null)
+                return null;
+            return new UnrealClassLoader(new FolderPackageLoader(systemDir.get()));
+        }, systemDir));
+    }
+
     @FXML
     private void chooseL2Folder() {
         DirectoryChooser directoryChooser = new DirectoryChooser();
         directoryChooser.setTitle("Select L2 folder");
-        File dir = directoryChooser.showDialog(this.stage);
+        File dir = directoryChooser.showDialog(getStage());
         if (dir == null)
             return;
 
@@ -612,9 +662,6 @@ public class Controller implements Initializable {
 
     @FXML
     private void viewForeignStaticMesh() {
-        if ((this.umodelPath.get() == null) && !selectUmodel())
-            return;
-
         String obj = this.smChooser.getSelectionModel().getSelectedItem();
         String file = this.usxChooser.getSelectionModel().getSelectedItem();
         showUmodel(obj, file);
@@ -622,15 +669,15 @@ public class Controller implements Initializable {
 
     @FXML
     private void viewActorStaticMesh() {
-        if ((this.umodelPath.get() == null) && !selectUmodel())
-            return;
-
         String obj = this.actorStaticMeshChooser.getSelectionModel().getSelectedItem().toString();
         String file = obj.substring(0, obj.indexOf('.')) + ".usx";
         showUmodel(obj, file);
     }
 
     private void showUmodel(final String obj, final String file) {
+        if (this.umodelPath.get() == null && !selectUmodel())
+            return;
+
         Thread umodel = new Thread(() -> {
             try {
                 File f = Arrays.stream(staticMeshDir.get().listFiles())
@@ -669,7 +716,7 @@ public class Controller implements Initializable {
     private boolean selectUmodel() {
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("Select umodel");
-        File file = fileChooser.showOpenDialog(this.stage);
+        File file = fileChooser.showOpenDialog(getStage());
         if (file == null) {
             return false;
         }
@@ -737,39 +784,46 @@ public class Controller implements Initializable {
         FileChooser fileChooser = new FileChooser();
         fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("JSON", "*.json"));
         fileChooser.setTitle("Save");
-        File file = fileChooser.showSaveDialog(stage);
+        File file = fileChooser.showSaveDialog(getStage());
         if (file == null)
             return;
 
-        float x = dlg.getX(), y = dlg.getY(), z = dlg.getZ();
-        double angle = dlg.getAngle();
-        AffineTransform rotate = AffineTransform.getRotateInstance(Math.PI * angle / 180, x, y);
-        AffineTransform translate = AffineTransform.getTranslateInstance(-x, -y);
+        if (file.exists() && !showConfirm(Alert.AlertType.WARNING, "Confirm saving", null, file.getName() + " already exists.\nOverwrite?"))
+            return;
 
-        actors.stream().forEach(o -> {
-            Point2D.Float point = new Point2D.Float(o.getX(), o.getY());
-            rotate.transform(point, point);
-            translate.transform(point, point);
+        longTask(new Task<Void>() {
+            @Override
+            protected Void call() throws Exception {
+                float x = dlg.getX(), y = dlg.getY(), z = dlg.getZ();
+                double angle = dlg.getAngle();
+                AffineTransform rotate = AffineTransform.getRotateInstance(Math.PI * angle / 180, x, y);
+                AffineTransform translate = AffineTransform.getTranslateInstance(-x, -y);
 
-            o.setX(point.x);
-            o.setY(point.y);
-            o.setZ(o.getZ() - z);
-            if (o.getYaw() == null) o.setYaw(0);
-            o.setYaw(((int) (o.getYaw() + angle * 0xFFFF / 360)) & 0xFFFF);
-        });
+                actors.stream().forEach(o -> {
+                    Point2D.Float point = new Point2D.Float(o.getX(), o.getY());
+                    rotate.transform(point, point);
+                    translate.transform(point, point);
 
-        L2Map map = new L2Map(x, y, z, actors);
-        ObjectMapper objectMapper = new ObjectMapper();
+                    o.setX(point.x);
+                    o.setY(point.y);
+                    o.setZ(o.getZ() - z);
+                    if (o.getYaw() == null) o.setYaw(0);
+                    o.setYaw(((int) (o.getYaw() + angle * 0xFFFF / 360)) & 0xFFFF);
+                });
 
-        try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-            objectMapper.writeValue(baos, map);
+                L2Map map = new L2Map(x, y, z, actors);
+                ObjectMapper objectMapper = new ObjectMapper();
 
-            try (OutputStream fos = new FileOutputStream(file)) {
-                baos.writeTo(fos);
+                try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+                    objectMapper.writeValue(baos, map);
+
+                    try (OutputStream fos = new FileOutputStream(file)) {
+                        baos.writeTo(fos);
+                    }
+                }
+                return null;
             }
-        } catch (Exception e) {
-            showAlert(Alert.AlertType.WARNING, "Export failed", e.getClass().getSimpleName(), e.getMessage());
-        }
+        }, e -> showAlert(Alert.AlertType.WARNING, "Export failed", e.getClass().getSimpleName(), e.getMessage()));
     }
 
     @FXML
@@ -780,7 +834,7 @@ public class Controller implements Initializable {
         FileChooser fileChooser = new FileChooser();
         fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("JSON", "*.json"));
         fileChooser.setTitle("Open");
-        File file = fileChooser.showOpenDialog(stage);
+        File file = fileChooser.showOpenDialog(getStage());
         if (file == null)
             return;
 
@@ -866,6 +920,57 @@ public class Controller implements Initializable {
         } catch (IOException e) {
             showAlert(Alert.AlertType.WARNING, "Import failed", e.getClass().getSimpleName(), e.getMessage());
         }
+    }
+
+    @FXML
+    private void exportSMT3d() {
+        List<Actor> actors = this.table.getSelectionModel().getSelectedItems()
+                .stream()
+                .map(Actor::clone)
+                .collect(Collectors.toList());
+
+        if (actors.isEmpty())
+            return;
+
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Unreal text", "*.t3d"));
+        fileChooser.setTitle("Open");
+        File file = fileChooser.showOpenDialog(getStage());
+        if (file == null)
+            return;
+
+        if (file.exists() && !showConfirm(Alert.AlertType.WARNING, "Confirm saving", null, file.getName() + " already exists.\nOverwrite?"))
+            return;
+
+        longTask(new Task<Void>() {
+            @Override
+            protected Void call() throws Exception {
+                StringBuilder sb = new StringBuilder("Begin Map");
+                T3d t3d = new T3d(new ObjectFactory(classLoader.get()));
+                try (UnrealPackageFile up = new UnrealPackageFile(new File(mapsDir.get(), unrChooser.getSelectionModel().getSelectedItem()), false)) {
+                    actors.stream()
+                            .map(actor -> up.getExportTable().get(actor.getInd()))
+                            .forEach(entry -> sb.append(Util.newLine()).append(t3d.toT3d(entry, 0)));
+                }
+                sb.append(newLine()).append("End Map");
+
+                try (Writer fos = new FileWriter(file)) {
+                    fos.write(sb.toString());
+                }
+                return null;
+            }
+        }, e -> showAlert(Alert.AlertType.WARNING, "Export failed", e.getClass().getSimpleName(), e.getMessage()));
+    }
+
+    private void showHelp() {
+        showAlert(Alert.AlertType.INFORMATION, "Help", null,
+                "Hotkeys:\n" +
+                        "F1 - help\n" +
+                        "CTRL+O - select L2 folder\n" +
+                        "CTRL+U - select UE viewer\n" +
+                        "CTRL+E - export selected staticmeshes to json file\n" +
+                        "CTRL+I - import staticmeshes from json file\n" +
+                        "CTRL+T - export selected staticmeshes to t3d file");
     }
 
     private void longTask(Task<Void> task, Consumer<Throwable> exceptionHandler) {

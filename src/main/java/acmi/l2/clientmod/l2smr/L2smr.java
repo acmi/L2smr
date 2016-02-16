@@ -47,13 +47,14 @@ public class L2smr extends Application {
 
         Parent root = loader.load();
 
+        stage.setTitle("L2smr");
+        stage.setScene(new Scene(root));
+
         Controller controller = loader.getController();
         controller.l2DirProperty().bindBidirectional(l2Dir);
         controller.umodelPathProperty().bindBidirectional(umodelPath);
         controller.setStage(stage);
 
-        stage.setTitle("L2smr");
-        stage.setScene(new Scene(root));
         stage.show();
     }
 

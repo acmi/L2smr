@@ -25,12 +25,11 @@ import acmi.l2.clientmod.io.UnrealPackageFile;
 import acmi.l2.clientmod.l2smr.StaticMeshActorUtil;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
-import java.io.IOException;
+import java.util.Arrays;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class Actor{
+public class Actor {
     private int ind;
     private String actorName;
     private Offsets offsets;
@@ -347,12 +346,20 @@ public class Actor{
     }
 
     @Override
-    public Actor clone()  {
-        ObjectMapper objectMapper = new ObjectMapper();
-        try {
-            return objectMapper.readValue(objectMapper.writeValueAsBytes(this), Actor.class);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+    public Actor clone() {
+        Actor actor = new Actor();
+        actor.ind = ind;
+        actor.actorName = actorName;
+        actor.offsets = offsets.clone();
+        actor.staticMeshRef = staticMeshRef;
+        actor.staticMesh = staticMesh;
+        actor.actorClass = actorClass;
+        actor.location = location == null ? null : Arrays.copyOf(location, location.length);
+        actor.rotation = rotation == null ? null : Arrays.copyOf(rotation, rotation.length);
+        actor.rotationRate = rotationRate == null ? null : Arrays.copyOf(rotationRate, rotationRate.length);
+        actor.scale = scale;
+        actor.scale3D = scale3D == null ? null : Arrays.copyOf(scale3D, scale3D.length);
+        actor.zoneRenderState = zoneRenderState == null ? null : Arrays.copyOf(zoneRenderState, zoneRenderState.length);
+        return actor;
     }
 }

@@ -26,7 +26,7 @@
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
-<AnchorPane xmlns="http://javafx.com/javafx/null" xmlns:fx="http://javafx.com/fxml/1"
+<AnchorPane xmlns="http://javafx.com/javafx/8.0.40" xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="acmi.l2.clientmod.l2smr.Controller">
     <children>
         <VBox maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="550.0"
@@ -50,7 +50,11 @@
                             </GridPane.margin>
                         </Label>
                         <TextField fx:id="l2Path" GridPane.columnIndex="1"/>
-                        <Button mnemonicParsing="false" onAction="#chooseL2Folder" text=".." GridPane.columnIndex="2"/>
+                        <Button mnemonicParsing="false" onAction="#chooseL2Folder" text=".." GridPane.columnIndex="2">
+                            <tooltip>
+                                <Tooltip text="Choose L2 folder (CTLR+O)"/>
+                            </tooltip>
+                        </Button>
                         <Label text="UNR" GridPane.rowIndex="1">
                             <GridPane.margin>
                                 <Insets/>
@@ -87,8 +91,12 @@
                                                 <MenuItem mnemonicParsing="false" onAction="#copyNameToClipboard"
                                                           text="Copy SM name"/>
                                                 <SeparatorMenuItem/>
-                                                <MenuItem mnemonicParsing="false" onAction="#importSM" text="Import"/>
-                                                <MenuItem mnemonicParsing="false" onAction="#exportSM" text="Export"/>
+                                                <MenuItem mnemonicParsing="false" onAction="#importSM" text="Import"
+                                                          accelerator="CTRL+I"/>
+                                                <MenuItem mnemonicParsing="false" onAction="#exportSM" text="Export"
+                                                          accelerator="CTRL+E"/>
+                                                <MenuItem mnemonicParsing="false" onAction="#exportSMT3d"
+                                                          text="Export as t3d" accelerator="CTRL+T"/>
                                             </items>
                                         </ContextMenu>
                                     </contextMenu>

@@ -26,6 +26,7 @@ import acmi.l2.clientmod.io.UnrealPackageFile;
 import acmi.l2.clientmod.l2smr.StaticMeshActorUtil;
 import acmi.l2.clientmod.unreal.classloader.PropertiesUtil.Type;
 import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.TextField;
 
 import java.io.File;
@@ -81,11 +82,19 @@ public class Util {
 
     public static void showAlert(Alert.AlertType alertType, String title, String header, String content) {
         Alert alert = new Alert(alertType);
-        alert.setAlertType(alertType);
         alert.setTitle(title);
         alert.setHeaderText(header);
         alert.setContentText(content);
         alert.show();
+    }
+
+    public static boolean showConfirm(Alert.AlertType alertType, String title, String header, String content) {
+        Alert alert = new Alert(alertType);
+        alert.setTitle(title);
+        alert.setHeaderText(header);
+        alert.setContentText(content);
+        alert.getButtonTypes().setAll(ButtonType.YES, ButtonType.NO);
+        return ButtonType.YES == alert.showAndWait().orElse(ButtonType.NO);
     }
 
     public static void readStateFrame(ByteBuffer buffer) throws BufferUnderflowException {
@@ -120,7 +129,7 @@ public class Util {
         }
     }
 
-    public static int getXY(File mapDir, String mapName) throws IOException{
+    public static int getXY(File mapDir, String mapName) throws IOException {
         int[] m = new int[2];
 
         try (UnrealPackageFile up = new UnrealPackageFile(new File(mapDir, mapName), true)) {
@@ -146,5 +155,22 @@ public class Util {
         }
 
         return m[0] | (m[1] << 8);
+    }
+
+    public static CharSequence tab(int indent) {
+        StringBuilder sb = new StringBuilder(indent);
+        for (int i = 0; i < indent; i++)
+            sb.append('\t');
+        return sb;
+    }
+
+    public static CharSequence newLine(int indent) {
+        StringBuilder sb = new StringBuilder("\r\n");
+        sb.append(tab(indent));
+        return sb;
+    }
+
+    public static CharSequence newLine() {
+        return newLine(0);
     }
 }
