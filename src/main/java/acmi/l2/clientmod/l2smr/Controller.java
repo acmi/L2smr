@@ -24,6 +24,7 @@ package acmi.l2.clientmod.l2smr;
 import acmi.l2.clientmod.io.UnrealPackageFile;
 import acmi.l2.clientmod.io.UnrealPackageReadOnly;
 import acmi.l2.clientmod.l2smr.dialogs.ImportExportDialog;
+import acmi.l2.clientmod.l2smr.dialogs.ModifyDialog;
 import acmi.l2.clientmod.l2smr.dialogs.StaticMeshActorDialog;
 import acmi.l2.clientmod.l2smr.model.Actor;
 import acmi.l2.clientmod.l2smr.model.L2Map;
@@ -63,6 +64,7 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
+import static acmi.l2.clientmod.util.CollectionsMethods.indexIf;
 import static acmi.l2.clientmod.util.Util.*;
 import static javafx.scene.input.KeyCombination.keyCombination;
 
@@ -153,6 +155,7 @@ public class Controller implements Initializable {
     @FXML
     private ProgressIndicator progress;
 
+    private final ObjectProperty<Stage> stage = new SimpleObjectProperty<>(this, "");
     private final ObjectProperty<File> l2Dir = new SimpleObjectProperty<>();
     private final ObjectProperty<File> mapsDir = new SimpleObjectProperty<>();
     private final ObjectProperty<File> staticMeshDir = new SimpleObjectProperty<>();
@@ -161,7 +164,6 @@ public class Controller implements Initializable {
     private final ObjectProperty<File> usx = new SimpleObjectProperty<>();
     private final StringProperty umodelPath = new SimpleStringProperty();
     private final ObjectProperty<UnrealClassLoader> classLoader = new SimpleObjectProperty<>();
-    private final ObjectProperty<Stage> stage = new SimpleObjectProperty<>(this, "");
 
     public Stage getStage() {
         return stage.get();
@@ -203,8 +205,8 @@ public class Controller implements Initializable {
     public void initialize(URL url, ResourceBundle resourceBundle) {
         stageProperty().addListener(observable -> initializeKeyCombinations());
 
-        this.l2Path.textProperty().bind(Bindings.createStringBinding(() -> Controller.this.l2Dir.getValue() != null ?
-                Controller.this.l2Dir.getValue().getAbsolutePath() : "", Controller.this.l2Dir));
+        this.l2Path.textProperty().bind(Bindings.createStringBinding(() -> l2Dir.getValue() != null ?
+                l2Dir.getValue().getAbsolutePath() : "", l2Dir));
 
         initializeUnr();
         initializeUsx();
@@ -246,6 +248,7 @@ public class Controller implements Initializable {
         keyCombinations.put(keyCombination("F1"), this::showHelp);
         keyCombinations.put(keyCombination("CTRL+O"), this::chooseL2Folder);
         keyCombinations.put(keyCombination("CTRL+U"), this::selectUmodel);
+        keyCombinations.put(keyCombination("CTRL+M"), this::modify);
         keyCombinations.put(keyCombination("CTRL+E"), this::exportSM);
         keyCombinations.put(keyCombination("CTRL+I"), this::importSM);
         keyCombinations.put(keyCombination("CTRL+T"), this::exportSMT3d);
@@ -262,43 +265,57 @@ public class Controller implements Initializable {
 
     private void initializeUnr() {
         this.mapsDir.bind(Bindings.createObjectBinding(() -> {
-            if (Controller.this.l2Dir.getValue() == null)
+            if (l2Dir.getValue() == null)
                 return null;
 
-            return Arrays.stream(Controller.this.l2Dir.getValue().listFiles())
+            return Arrays.stream(l2Dir.getValue().listFiles())
                     .filter(path -> path.isDirectory() && path.getName().equalsIgnoreCase("maps"))
                     .findAny()
                     .orElse(null);
-        }, Controller.this.l2Dir));
+        }, l2Dir));
         this.mapsDir.addListener((observable, oldValue, newValue) -> {
-            Controller.this.unrChooser.getSelectionModel().clearSelection();
-            Controller.this.unrChooser.getItems().clear();
-            Controller.this.unrChooser.setDisable(true);
+            unrChooser.getSelectionModel().clearSelection();
+            unrChooser.getItems().clear();
+            unrChooser.setDisable(true);
+
             if (newValue == null)
                 return;
 
-            Arrays.stream(newValue.listFiles(MAP_FILE_FILTER))
+            unrChooser.getItems().addAll(Arrays
+                    .stream(newValue.listFiles(MAP_FILE_FILTER))
                     .map(File::getName)
-                    .forEach(Controller.this.unrChooser.getItems()::add);
+                    .collect(Collectors.toList()));
 
-            Controller.this.unrChooser.setDisable(false);
+            unrChooser.setDisable(false);
 
-            new AutoCompleteComboBoxListener<>(Controller.this.unrChooser);
+            new AutoCompleteComboBoxListener<>(unrChooser);
         });
         this.unrChooser.getSelectionModel().selectedItemProperty().addListener((observable, oldValue, newValue) -> {
+            table.getSelectionModel().clearSelection();
+            filterPane.setDisable(true);
+            actors.set(null);
+            actorStaticMeshChooser.getItems().clear();
+
             System.gc();
-            Controller.this.table.getSelectionModel().clearSelection();
-            Controller.this.filterPane.setDisable(true);
-            Controller.this.actors.set(null);
 
             if (newValue == null)
                 return;
 
-            try (UnrealPackageFile up = new UnrealPackageFile(new File(Controller.this.mapsDir.get(), newValue), true)) {
+            try (UnrealPackageFile up = new UnrealPackageFile(new File(mapsDir.get(), newValue), true)) {
                 longTask(new Task<Void>() {
                     @Override
                     protected Void call() throws Exception {
-                        List<Actor> actors = up.getExportTable().stream()
+                        List<UnrealPackageFile.ImportEntry> staticMeshes = up.getImportTable()
+                                .parallelStream()
+                                .filter(ie -> ie.getFullClassName().equalsIgnoreCase("Engine.StaticMesh"))
+                                .sorted((ie1, ie2) -> String.CASE_INSENSITIVE_ORDER.compare(ie1.getObjectInnerFullName(), ie2.getObjectInnerFullName()))
+                                .collect(Collectors.toList());
+                        Platform.runLater(() -> {
+                            actorStaticMeshChooser.getItems().setAll(staticMeshes);
+                            new AutoCompleteComboBoxListener<>(actorStaticMeshChooser);
+                        });
+
+                        List<Actor> actors = up.getExportTable().parallelStream()
                                 .filter(e -> UnrealPackageReadOnly.ObjectFlag.getFlags(e.getObjectFlags()).contains(UnrealPackageReadOnly.ObjectFlag.HasStack))
                                 .map(entry -> {
                                     try {
@@ -313,190 +330,165 @@ public class Controller implements Initializable {
                         Platform.runLater(() -> Controller.this.actors.set(FXCollections.observableArrayList(actors)));
                         return null;
                     }
-                }, e -> showAlert(Alert.AlertType.WARNING, "Import failed", e.getClass().getSimpleName(), e.getMessage()));
+                }, e -> showAlert(Alert.AlertType.ERROR, "Import failed", e.getClass().getSimpleName(), e.getMessage()));
             } catch (Exception e) {
-                showAlert(Alert.AlertType.WARNING, "Read failed", e.getClass().getSimpleName(), e.getMessage());
+                showAlert(Alert.AlertType.ERROR, "Read failed", e.getClass().getSimpleName(), e.getMessage());
             }
 
             resetFilter();
-            Controller.this.filterPane.setDisable(false);
+            filterPane.setDisable(false);
         });
         this.actorColumn.setCellValueFactory(actorStringCellDataFeatures -> new SimpleStringProperty(actorStringCellDataFeatures.getValue().getActorName()));
         this.staticMeshColumn.setCellValueFactory(actorStringCellDataFeatures -> new SimpleStringProperty(actorStringCellDataFeatures.getValue().getStaticMesh()));
         this.table.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
-        this.table.getSelectionModel().selectedItemProperty().addListener((observableValue, actor, actor2) -> {
-            Controller.this.smaPane.setDisable(true);
-            Controller.this.locationX.setText("");
-            Controller.this.locationX.setDisable(true);
-            Controller.this.locationY.setText("");
-            Controller.this.locationY.setDisable(true);
-            Controller.this.locationZ.setText("");
-            Controller.this.locationZ.setDisable(true);
-            Controller.this.rotationPitch.setText("");
-            Controller.this.rotationPitch.setDisable(true);
-            Controller.this.rotationYaw.setText("");
-            Controller.this.rotationYaw.setDisable(true);
-            Controller.this.rotationRoll.setText("");
-            Controller.this.rotationRoll.setDisable(true);
-            Controller.this.drawScale3DX.setText("");
-            Controller.this.drawScale3DX.setDisable(true);
-            Controller.this.drawScale3DY.setText("");
-            Controller.this.drawScale3DY.setDisable(true);
-            Controller.this.drawScale3DZ.setText("");
-            Controller.this.drawScale3DZ.setDisable(true);
-            Controller.this.drawScale.setText("");
-            Controller.this.drawScale.setDisable(true);
-            Controller.this.rotationPitchRate.setText("");
-            Controller.this.rotationPitchRate.setDisable(true);
-            Controller.this.rotationYawRate.setText("");
-            Controller.this.rotationYawRate.setDisable(true);
-            Controller.this.rotationRollRate.setText("");
-            Controller.this.rotationRollRate.setDisable(true);
-            Controller.this.zoneState.setText("");
-            Controller.this.zoneState.setDisable(true);
-            Controller.this.actorStaticMeshChooser.getSelectionModel().clearSelection();
-            Controller.this.actorStaticMeshChooser.getItems().clear();
-            if (actor2 == null)
-                return;
+        this.table.getSelectionModel().selectedItemProperty().addListener((observable) -> updateSMAPane());
+    }
 
-            Controller.this.smaPane.setDisable(false);
-            float[] location = actor2.getLocation();
-            if (location != null) {
-                Controller.this.locationX.setText(String.valueOf(location[0]));
-                Controller.this.locationX.setDisable(false);
-                Controller.this.locationY.setText(String.valueOf(location[1]));
-                Controller.this.locationY.setDisable(false);
-                Controller.this.locationZ.setText(String.valueOf(location[2]));
-                Controller.this.locationZ.setDisable(false);
-            }
-            int[] rotator = actor2.getRotation();
-            if (rotator != null) {
-                Controller.this.rotationPitch.setText(String.valueOf(rotator[0]));
-                Controller.this.rotationPitch.setDisable(false);
-                Controller.this.rotationYaw.setText(String.valueOf(rotator[1]));
-                Controller.this.rotationYaw.setDisable(false);
-                Controller.this.rotationRoll.setText(String.valueOf(rotator[2]));
-                Controller.this.rotationRoll.setDisable(false);
-            }
-            Float ds = actor2.getScale();
-            if (ds != null) {
-                Controller.this.drawScale.setText(ds.toString());
-                Controller.this.drawScale.setDisable(false);
-            }
-            float[] drawScale3D = actor2.getScale3D();
-            if (drawScale3D != null) {
-                Controller.this.drawScale3DX.setText(String.valueOf(drawScale3D[0]));
-                Controller.this.drawScale3DX.setDisable(false);
-                Controller.this.drawScale3DY.setText(String.valueOf(drawScale3D[1]));
-                Controller.this.drawScale3DY.setDisable(false);
-                Controller.this.drawScale3DZ.setText(String.valueOf(drawScale3D[2]));
-                Controller.this.drawScale3DZ.setDisable(false);
-            }
-            int[] rotationRate = actor2.getRotationRate();
-            if (rotationRate != null) {
-                Controller.this.rotationPitchRate.setText(String.valueOf(rotationRate[0]));
-                Controller.this.rotationPitchRate.setDisable(false);
-                Controller.this.rotationYawRate.setText(String.valueOf(rotationRate[1]));
-                Controller.this.rotationYawRate.setDisable(false);
-                Controller.this.rotationRollRate.setText(String.valueOf(rotationRate[2]));
-                Controller.this.rotationRollRate.setDisable(false);
-            }
-            int[] zoneRenderState = actor2.getZoneRenderState();
-            if (zoneRenderState != null) {
-                String s = Arrays.toString(zoneRenderState);
-                Controller.this.zoneState.setText(s.substring(1, s.length() - 1));
-                Controller.this.zoneState.setDisable(false);
-            }
-            try (UnrealPackageFile up = new UnrealPackageFile(new File(Controller.this.mapsDir.get(), Controller.this.unrChooser.getSelectionModel().getSelectedItem()), true)) {
-                List<UnrealPackageFile.ImportEntry> imports = up.getImportTable();
-                UnrealPackageFile.ImportEntry curr = null;
-                for (int i = 0; i < imports.size(); i++) {
-                    UnrealPackageFile.ImportEntry entry = imports.get(i);
-                    if (entry.getClassName().getName().equals("StaticMesh")) {
-                        Controller.this.actorStaticMeshChooser.getItems().add(entry);
-                        if (actor2.getStaticMeshRef() == -i - 1) {
-                            curr = entry;
-                        }
-                    }
-                }
-                FXCollections.sort(Controller.this.actorStaticMeshChooser.getItems(), (o1, o2) -> o1.toString().compareToIgnoreCase(o2.toString()));
-                new AutoCompleteComboBoxListener<>(Controller.this.actorStaticMeshChooser);
-                Controller.this.actorStaticMeshChooser.getSelectionModel().select(curr);
-            } catch (Exception e) {
-                showAlert(Alert.AlertType.WARNING, "Read failed", e.getClass().getSimpleName(), e.getMessage());
-            }
-        });
+    private void updateSMAPane() {
+        smaPane.setDisable(true);
+        Arrays.stream(new TextField[]{
+                locationX, locationY, locationZ,
+                rotationPitch, rotationYaw, rotationRoll,
+                drawScale3DX, drawScale3DY, drawScale3DZ,
+                drawScale,
+                rotationPitchRate, rotationYawRate, rotationRollRate,
+                zoneState
+        }).forEach(this::clearTextAndDisable);
+        actorStaticMeshChooser.getSelectionModel().clearSelection();
+
+        Actor actor2 = table.getSelectionModel().getSelectedItem();
+        if (actor2 == null)
+            return;
+
+        smaPane.setDisable(false);
+        float[] location = actor2.getLocation();
+        if (location != null) {
+            setTextAndEnable(locationX, String.valueOf(location[0]));
+            setTextAndEnable(locationY, String.valueOf(location[1]));
+            setTextAndEnable(locationZ, String.valueOf(location[2]));
+        }
+        int[] rotator = actor2.getRotation();
+        if (rotator != null) {
+            setTextAndEnable(rotationPitch, String.valueOf(rotator[0]));
+            setTextAndEnable(rotationYaw, String.valueOf(rotator[1]));
+            setTextAndEnable(rotationRoll, String.valueOf(rotator[2]));
+        }
+        Float ds = actor2.getScale();
+        if (ds != null) {
+            setTextAndEnable(drawScale, ds.toString());
+        }
+        float[] drawScale3D = actor2.getScale3D();
+        if (drawScale3D != null) {
+            setTextAndEnable(drawScale3DX, String.valueOf(drawScale3D[0]));
+            setTextAndEnable(drawScale3DY, String.valueOf(drawScale3D[1]));
+            setTextAndEnable(drawScale3DZ, String.valueOf(drawScale3D[2]));
+        }
+        int[] rotationRate = actor2.getRotationRate();
+        if (rotationRate != null) {
+            setTextAndEnable(rotationPitchRate, String.valueOf(rotationRate[0]));
+            setTextAndEnable(rotationYawRate, String.valueOf(rotationRate[1]));
+            setTextAndEnable(rotationRollRate, String.valueOf(rotationRate[2]));
+        }
+        int[] zoneRenderState = actor2.getZoneRenderState();
+        if (zoneRenderState != null) {
+            String s = Arrays.toString(zoneRenderState);
+            setTextAndEnable(zoneState, s.substring(1, s.length() - 1));
+        }
+        actorStaticMeshChooser.getSelectionModel()
+                .select(indexIf(actorStaticMeshChooser.getItems(), ie -> ie.getObjectReference() == actor2.getStaticMeshRef()));
+    }
+
+    private void clearTextAndDisable(TextField tf) {
+        tf.setText("");
+        tf.setDisable(true);
+    }
+
+    private void setTextAndEnable(TextField tf, String text) {
+        tf.setText(text);
+        tf.setDisable(false);
+    }
+
+    private void resetFilter() {
+        filterStaticMesh.setText("");
+        filterX.setText("");
+        filterY.setText("");
+        filterZ.setText("");
+        filterRange.setText("");
+        rotatable.setSelected(false);
+        scalable.setSelected(false);
+        rotating.setSelected(false);
+        filterPane.setExpanded(false);
     }
 
     private void initializeUsx() {
         this.staticMeshDir.bind(Bindings.createObjectBinding(() -> {
-            if (Controller.this.l2Dir.getValue() == null)
+            if (l2Dir.getValue() == null)
                 return null;
-            return Arrays.stream(Controller.this.l2Dir.getValue().listFiles())
+            return Arrays.stream(l2Dir.getValue().listFiles())
                     .filter(path -> path.isDirectory() && path.getName().equalsIgnoreCase("staticmeshes"))
                     .findAny()
                     .orElse(null);
-        }, Controller.this.l2Dir));
+        }, l2Dir));
         this.staticMeshDir.addListener((observable, oldValue, newValue) -> {
-            Controller.this.smPane.setDisable(true);
+            smPane.setDisable(true);
 
-            Controller.this.usxChooser.getSelectionModel().clearSelection();
-            Controller.this.usxChooser.getItems().clear();
+            usxChooser.getSelectionModel().clearSelection();
+            usxChooser.getItems().clear();
 
             if (newValue == null) {
                 return;
             }
 
-            Controller.this.smPane.setDisable(false);
-            Arrays.stream(newValue.listFiles(STATICMESH_FILE_FILTER))
+            smPane.setDisable(false);
+            usxChooser.getItems().addAll(Arrays
+                    .stream(newValue.listFiles(STATICMESH_FILE_FILTER))
                     .map(File::getName)
-                    .forEach(Controller.this.usxChooser.getItems()::add);
-
-            new AutoCompleteComboBoxListener<>(Controller.this.usxChooser);
+                    .collect(Collectors.toList()));
+            new AutoCompleteComboBoxListener<>(usxChooser);
         });
         this.usx.bind(Bindings.createObjectBinding(() -> {
-            String selected = Controller.this.usxChooser.getSelectionModel().getSelectedItem();
+            String selected = usxChooser.getSelectionModel().getSelectedItem();
             if (selected == null)
                 return null;
-            return new File(Controller.this.staticMeshDir.getValue(), selected);
-        }, Controller.this.staticMeshDir, Controller.this.usxChooser.getSelectionModel().selectedItemProperty()));
+            return new File(staticMeshDir.getValue(), selected);
+        }, staticMeshDir, usxChooser.getSelectionModel().selectedItemProperty()));
         this.usx.addListener((observable, oldValue, newValue) -> {
-            Controller.this.smChooser.getSelectionModel().clearSelection();
-            Controller.this.smChooser.getItems().clear();
-            Controller.this.smChooser.setDisable(true);
+            smChooser.getSelectionModel().clearSelection();
+            smChooser.getItems().clear();
+            smChooser.setDisable(true);
             if (newValue == null) {
                 return;
             }
+
             try (UnrealPackageFile up = new UnrealPackageFile(newValue, true)) {
-                up.getExportTable().stream()
+                smChooser.getItems().setAll(up.getExportTable().stream()
                         .filter(entry -> entry.getObjectClass().getObjectFullName().equals("Engine.StaticMesh"))
                         .map(UnrealPackageFile.ExportEntry::getObjectInnerFullName)
-                        .forEach(Controller.this.smChooser.getItems()::add);
+                        .sorted(String.CASE_INSENSITIVE_ORDER)
+                        .collect(Collectors.toList()));
+                smChooser.setDisable(false);
+                new AutoCompleteComboBoxListener<>(smChooser);
             } catch (Exception e) {
                 showAlert(Alert.AlertType.WARNING, "Read failed", e.getClass().getSimpleName(), e.getMessage());
             }
-
-            FXCollections.sort(Controller.this.smChooser.getItems());
-            Controller.this.smChooser.setDisable(false);
-            new AutoCompleteComboBoxListener<>(Controller.this.smChooser);
         });
-        this.smView.disableProperty().bind(Bindings.isNull(Controller.this.smChooser.getSelectionModel().selectedItemProperty()));
+        this.smView.disableProperty().bind(Bindings.isNull(smChooser.getSelectionModel().selectedItemProperty()));
         ObservableBooleanValue b = Bindings.or(
-                Bindings.isNull(Controller.this.unrChooser.getSelectionModel().selectedItemProperty()),
-                Bindings.isNull(Controller.this.smChooser.getSelectionModel().selectedItemProperty()));
+                Bindings.isNull(unrChooser.getSelectionModel().selectedItemProperty()),
+                Bindings.isNull(smChooser.getSelectionModel().selectedItemProperty()));
         this.addToUnr.disableProperty().bind(b);
         this.createNew.disableProperty().bind(b);
     }
 
     private void initializeT3d() {
         this.systemDir.bind(Bindings.createObjectBinding(() -> {
-            if (Controller.this.l2Dir.getValue() == null)
+            if (l2Dir.getValue() == null)
                 return null;
-            return Arrays.stream(Controller.this.l2Dir.getValue().listFiles())
+            return Arrays.stream(l2Dir.getValue().listFiles())
                     .filter(path -> path.isDirectory() && path.getName().equalsIgnoreCase("system"))
                     .findAny()
                     .orElse(null);
-        }, Controller.this.l2Dir));
+        }, l2Dir));
         this.classLoader.bind(Bindings.createObjectBinding(() -> {
             if (systemDir.get() == null)
                 return null;
@@ -513,18 +505,6 @@ public class Controller implements Initializable {
             return;
 
         this.l2Dir.setValue(dir);
-    }
-
-    private void resetFilter() {
-        filterStaticMesh.setText("");
-        filterX.setText("");
-        filterY.setText("");
-        filterZ.setText("");
-        filterRange.setText("");
-        rotatable.setSelected(false);
-        scalable.setSelected(false);
-        rotating.setSelected(false);
-        filterPane.setExpanded(false);
     }
 
     @FXML
@@ -608,7 +588,7 @@ public class Controller implements Initializable {
             this.staticMeshColumn.setVisible(false);
             this.staticMeshColumn.setVisible(true);
         } catch (IOException e) {
-            showAlert(Alert.AlertType.WARNING, "Staticmesh set failed", e.getClass().getSimpleName(), e.getMessage());
+            showAlert(Alert.AlertType.ERROR, "Staticmesh set failed", e.getClass().getSimpleName(), e.getMessage());
         }
     }
 
@@ -619,11 +599,9 @@ public class Controller implements Initializable {
         try (UnrealPackageFile up = new UnrealPackageFile(new File(this.mapsDir.get(), this.unrChooser.getSelectionModel().getSelectedItem()), false)) {
             up.addImportEntries(Collections.singletonMap(usx + "." + this.smChooser.getSelectionModel().getSelectedItem(), "Engine.StaticMesh"), false);
 
-            Actor a = this.table.getSelectionModel().getSelectedItem();
-            this.table.getSelectionModel().clearSelection();
-            this.table.getSelectionModel().select(a);
+            updateSMAPane();
         } catch (IOException e) {
-            showAlert(Alert.AlertType.WARNING, "Staticmesh import failed", e.getClass().getSimpleName(), e.getMessage());
+            showAlert(Alert.AlertType.ERROR, "Staticmesh import failed", e.getClass().getSimpleName(), e.getMessage());
         }
     }
 
@@ -653,10 +631,10 @@ public class Controller implements Initializable {
                 if (actors.get(i).getInd() == actorInd)
                     ind = i;
 
-            Controller.this.table.getSelectionModel().select(ind);
-            Controller.this.table.scrollTo(ind);
+            table.getSelectionModel().select(ind);
+            table.scrollTo(ind);
         } catch (IOException e) {
-            showAlert(Alert.AlertType.WARNING, "Creation failed", e.getClass().getSimpleName(), e.getMessage());
+            showAlert(Alert.AlertType.ERROR, "Creation failed", e.getClass().getSimpleName(), e.getMessage());
         }
     }
 
@@ -703,12 +681,13 @@ public class Controller implements Initializable {
 
                 if (sb.length() > 0) {
                     String errText = sb.toString();
-                    showAlert(Alert.AlertType.WARNING, "View error", "Umodel output", errText.replaceAll("\\<-", "\r\n\\<-"));
+                    Platform.runLater(() -> showAlert(Alert.AlertType.WARNING, "View error", "Umodel output", errText.replaceAll("\\<-", "\r\n\\<-")));
                 }
             } catch (Exception e) {
-                showAlert(Alert.AlertType.WARNING, "View error", e.getClass().getSimpleName(), e.getMessage());
+                Platform.runLater(() -> showAlert(Alert.AlertType.ERROR, "View error", e.getClass().getSimpleName(), e.getMessage()));
             }
         });
+        umodel.setPriority(Thread.MIN_PRIORITY);
         umodel.setDaemon(true);
         umodel.start();
     }
@@ -742,10 +721,34 @@ public class Controller implements Initializable {
                 if (actors.get(i).getInd() == actorInd)
                     ind = i;
 
-            Controller.this.table.getSelectionModel().select(ind);
-            Controller.this.table.scrollTo(ind);
+            table.getSelectionModel().select(ind);
+            table.scrollTo(ind);
         } catch (Exception e) {
-            showAlert(Alert.AlertType.WARNING, "Copy failed", e.getClass().getSimpleName(), e.getMessage());
+            showAlert(Alert.AlertType.ERROR, "Copy failed", e.getClass().getSimpleName(), e.getMessage());
+        }
+    }
+
+    @FXML
+    private void modify() {
+        ModifyDialog modifyDialog = new ModifyDialog();
+        if (ButtonType.OK == modifyDialog.showAndWait().orElse(ButtonType.CANCEL)) {
+            Collection<Actor> selected = this.table.getSelectionModel().getSelectedItems();
+
+            selected.forEach(modifyDialog.getTransform());
+
+            updateSMAPane();
+
+            try (UnrealPackageFile up = new UnrealPackageFile(new File(this.mapsDir.get(), this.unrChooser.getSelectionModel().getSelectedItem()), false)) {
+                for (Actor actor : selected) {
+                    UnrealPackageFile.ExportEntry entry = up.getExportTable().get(actor.getInd());
+                    byte[] raw = entry.getObjectRawData();
+                    Offsets offsets = actor.getOffsets();
+                    StaticMeshActorUtil.setLocation(raw, offsets, actor.getX(), actor.getY(), actor.getZ());
+                    entry.setObjectRawData(raw);
+                }
+            } catch (IOException e) {
+                showAlert(Alert.AlertType.ERROR, "Staticmesh modify failed", e.getClass().getSimpleName(), e.getMessage());
+            }
         }
     }
 
@@ -770,7 +773,7 @@ public class Controller implements Initializable {
         if (actors.isEmpty())
             return;
 
-        int xy = 0x1412;
+        int xy = 18 | (20 << 8);
         try {
             xy = getXY(mapsDir.get(), this.unrChooser.getSelectionModel().getSelectedItem());
         } catch (IOException e) {
@@ -820,7 +823,7 @@ public class Controller implements Initializable {
                 }
                 return null;
             }
-        }, e -> showAlert(Alert.AlertType.WARNING, "Export failed", e.getClass().getSimpleName(), e.getMessage()));
+        }, e -> showAlert(Alert.AlertType.ERROR, "Export failed", e.getClass().getSimpleName(), e.getMessage()));
     }
 
     @FXML
@@ -835,7 +838,7 @@ public class Controller implements Initializable {
         if (file == null)
             return;
 
-        int xy = 0x1412;
+        int xy = 18 | (20 << 8);
         try {
             xy = getXY(mapsDir.get(), this.unrChooser.getSelectionModel().getSelectedItem());
         } catch (IOException e) {
@@ -913,9 +916,9 @@ public class Controller implements Initializable {
                     });
                     return null;
                 }
-            }, e -> showAlert(Alert.AlertType.WARNING, "Import failed", e.getClass().getSimpleName(), e.getMessage()));
+            }, e -> showAlert(Alert.AlertType.ERROR, "Import failed", e.getClass().getSimpleName(), e.getMessage()));
         } catch (IOException e) {
-            showAlert(Alert.AlertType.WARNING, "Import failed", e.getClass().getSimpleName(), e.getMessage());
+            showAlert(Alert.AlertType.ERROR, "Import failed", e.getClass().getSimpleName(), e.getMessage());
         }
     }
 
@@ -950,7 +953,7 @@ public class Controller implements Initializable {
                     }
                     return null;
                 }
-            }, e -> showAlert(Alert.AlertType.WARNING, "Export failed", e.getClass().getSimpleName(), e.getMessage()));
+            }, e -> showAlert(Alert.AlertType.ERROR, "Export failed", e.getClass().getSimpleName(), e.getMessage()));
         } else {
             FileChooser fileChooser = new FileChooser();
             fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Unreal text", "*.t3d"));
@@ -976,7 +979,7 @@ public class Controller implements Initializable {
                     }
                     return null;
                 }
-            }, e -> showAlert(Alert.AlertType.WARNING, "Export failed", e.getClass().getSimpleName(), e.getMessage()));
+            }, e -> showAlert(Alert.AlertType.ERROR, "Export failed", e.getClass().getSimpleName(), e.getMessage()));
         }
     }
 
@@ -986,6 +989,7 @@ public class Controller implements Initializable {
                         "F1 - help\n" +
                         "CTRL+O - select L2 folder\n" +
                         "CTRL+U - select UE viewer\n" +
+                        "CTRL+M - modify selected actors\n" +
                         "CTRL+E - export selected staticmeshes to json file\n" +
                         "CTRL+I - import staticmeshes from json file\n" +
                         "CTRL+T - export selected staticmeshes to t3d file");

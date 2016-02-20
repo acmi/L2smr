@@ -88,6 +88,8 @@
                                     <contextMenu>
                                         <ContextMenu>
                                             <items>
+                                                <MenuItem mnemonicParsing="false" onAction="#modify" text="Modify"/>
+                                                <SeparatorMenuItem/>
                                                 <MenuItem mnemonicParsing="false" onAction="#copyNameToClipboard"
                                                           text="Copy SM name"/>
                                                 <SeparatorMenuItem/>

@@ -22,20 +22,15 @@
 package acmi.l2.clientmod.l2smr.dialogs;
 
 import javafx.scene.control.ButtonType;
-import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.GridPane;
 
-import java.util.Optional;
-
-public class ImportExportDialog {
+public class ImportExportDialog extends AbstractDialog {
     private TextField x = new TextField();
     private TextField y = new TextField();
     private TextField z = new TextField();
     private TextField angle = new TextField();
-
-    private Dialog<ButtonType> dialog = new Dialog<>();
 
     public ImportExportDialog(int mx, int my) {
         x.setText(String.valueOf((mx - 20) * 0x8000 + 0x4000));
@@ -56,13 +51,9 @@ public class ImportExportDialog {
         pane.add(angle, 1, 3);
         pane.add(new Label(" in degrees"), 2, 3);
 
-        dialog.setTitle("Group properties");
-        dialog.getDialogPane().setContent(pane);
-        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK);
-    }
-
-    public Optional<ButtonType> showAndWait() {
-        return dialog.showAndWait();
+        setTitle("Group properties");
+        getDialogPane().setContent(pane);
+        getDialogPane().getButtonTypes().addAll(ButtonType.OK);
     }
 
     public float getX() {

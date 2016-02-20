@@ -23,13 +23,10 @@ package acmi.l2.clientmod.l2smr.dialogs;
 
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
-import javafx.scene.control.Dialog;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.VBox;
 
-import java.util.Optional;
-
-public class StaticMeshActorDialog {
+public class StaticMeshActorDialog extends AbstractDialog {
     private TextField actorClass = new TextField("Engine.StaticMeshActor");
     private CheckBox rotation = new CheckBox("Rotation");
     private CheckBox scale = new CheckBox("Scale");
@@ -37,18 +34,12 @@ public class StaticMeshActorDialog {
     private CheckBox rotating = new CheckBox("Rotating");
     private CheckBox zoneRenderState = new CheckBox("ZoneRenderState");
 
-    private Dialog<ButtonType> dialog = new Dialog<>();
-
     public StaticMeshActorDialog() {
         rotation.setSelected(true);
 
-        dialog.setTitle("New StaticMeshActor properties");
-        dialog.getDialogPane().setContent(new VBox(2, actorClass, rotation, scale, scale3d, rotating, zoneRenderState));
-        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK);
-    }
-
-    public Optional<ButtonType> showAndWait() {
-        return dialog.showAndWait();
+        setTitle("New StaticMeshActor properties");
+        getDialogPane().setContent(new VBox(2, actorClass, rotation, scale, scale3d, rotating, zoneRenderState));
+        getDialogPane().getButtonTypes().addAll(ButtonType.OK);
     }
 
     public String getActorClass() {
