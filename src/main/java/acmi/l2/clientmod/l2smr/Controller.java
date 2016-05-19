@@ -28,6 +28,7 @@ import acmi.l2.clientmod.l2smr.dialogs.StaticMeshActorDialog;
 import acmi.l2.clientmod.l2smr.model.Actor;
 import acmi.l2.clientmod.l2smr.model.L2Map;
 import acmi.l2.clientmod.l2smr.model.Offsets;
+import acmi.l2.clientmod.properties.control.PropertiesEditor;
 import acmi.l2.clientmod.unreal.Environment;
 import acmi.l2.clientmod.unreal.UnrealSerializerFactory;
 import acmi.l2.clientmod.util.Util;
@@ -114,37 +115,9 @@ public class Controller implements Initializable {
     @FXML
     private TitledPane smaPane;
     @FXML
-    private ComboBox<UnrealPackage.ImportEntry> actorStaticMeshChooser;
+    private PropertiesEditor propertiesEditor;
     @FXML
     private Button actorStaticMeshView;
-    @FXML
-    private TextField locationX;
-    @FXML
-    private TextField locationY;
-    @FXML
-    private TextField locationZ;
-    @FXML
-    private TextField drawScale3DX;
-    @FXML
-    private TextField drawScale3DY;
-    @FXML
-    private TextField drawScale3DZ;
-    @FXML
-    private TextField drawScale;
-    @FXML
-    private TextField rotationPitch;
-    @FXML
-    private TextField rotationYaw;
-    @FXML
-    private TextField rotationRoll;
-    @FXML
-    private TextField rotationPitchRate;
-    @FXML
-    private TextField rotationYawRate;
-    @FXML
-    private TextField rotationRollRate;
-    @FXML
-    private TextField zoneState;
     @FXML
     private Button set;
     @FXML
