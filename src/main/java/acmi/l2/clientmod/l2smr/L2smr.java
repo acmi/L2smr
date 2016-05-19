@@ -33,6 +33,7 @@ import javafx.scene.Scene;
 import javafx.stage.Stage;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.file.Paths;
@@ -71,12 +72,12 @@ public class L2smr extends Application {
         try (JarFile jarFile = new JarFile(Paths.get(getClass().getProtectionDomain().getCodeSource().getLocation().toURI()).toFile())) {
             Manifest manifest = jarFile.getManifest();
             return manifest.getMainAttributes().getValue("Version");
+        } catch (FileNotFoundException ignore) {
         } catch (IOException | URISyntaxException e) {
             System.err.println("version info load error");
             e.printStackTrace(System.err);
-
-            return "";
         }
+        return "";
     }
 
     private void loadConfig() {
