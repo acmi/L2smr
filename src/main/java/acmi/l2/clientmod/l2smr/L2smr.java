@@ -22,6 +22,7 @@
 package acmi.l2.clientmod.l2smr;
 
 import javafx.application.Application;
+import javafx.beans.binding.Bindings;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
@@ -32,6 +33,11 @@ import javafx.scene.Scene;
 import javafx.stage.Stage;
 
 import java.io.File;
+import java.io.IOException;
+import java.net.URISyntaxException;
+import java.nio.file.Paths;
+import java.util.jar.JarFile;
+import java.util.jar.Manifest;
 import java.util.prefs.Preferences;
 
 public class L2smr extends Application {
@@ -45,10 +51,13 @@ public class L2smr extends Application {
         FXMLLoader loader = new FXMLLoader();
         loader.setLocation(L2smr.class.getResource("l2smr.fxml"));
 
+        String version = readAppVersion();
+
         Parent root = loader.load();
 
-        stage.setTitle("L2smr");
         stage.setScene(new Scene(root));
+        stage.titleProperty().bind(Bindings.createStringBinding(() ->
+                (l2Dir.get() != null ? l2Dir.get().toString() + " - " : "") + "L2smr " + version, l2Dir));
 
         Controller controller = loader.getController();
         controller.l2DirProperty().bindBidirectional(l2Dir);
@@ -56,6 +65,18 @@ public class L2smr extends Application {
         controller.setStage(stage);
 
         stage.show();
+    }
+
+    private String readAppVersion() throws IOException, URISyntaxException {
+        try (JarFile jarFile = new JarFile(Paths.get(getClass().getProtectionDomain().getCodeSource().getLocation().toURI()).toFile())) {
+            Manifest manifest = jarFile.getManifest();
+            return manifest.getMainAttributes().getValue("Version");
+        } catch (IOException | URISyntaxException e) {
+            System.err.println("version info load error");
+            e.printStackTrace(System.err);
+
+            return "";
+        }
     }
 
     private void loadConfig() {

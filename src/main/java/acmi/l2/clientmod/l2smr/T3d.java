@@ -21,13 +21,12 @@
  */
 package acmi.l2.clientmod.l2smr;
 
-import acmi.l2.clientmod.io.UnrealPackageFile;
-import acmi.l2.clientmod.io.UnrealPackageReadOnly;
-import acmi.l2.clientmod.unreal.classloader.L2Property;
+import acmi.l2.clientmod.io.UnrealPackage;
+import acmi.l2.clientmod.unreal.UnrealSerializerFactory;
 import acmi.l2.clientmod.unreal.core.*;
 import acmi.l2.clientmod.unreal.core.Enum;
 import acmi.l2.clientmod.unreal.core.Object;
-import acmi.l2.clientmod.unreal.objectfactory.ObjectFactory;
+import acmi.l2.clientmod.unreal.properties.L2Property;
 
 import java.util.List;
 import java.util.Locale;
@@ -38,13 +37,13 @@ import java.util.stream.Stream;
 import static acmi.l2.clientmod.util.Util.newLine;
 
 public class T3d {
-    private ObjectFactory objectFactory;
+    private UnrealSerializerFactory objectFactory;
 
-    public T3d(ObjectFactory objectFactory) {
+    public T3d(UnrealSerializerFactory objectFactory) {
         this.objectFactory = objectFactory;
     }
 
-    public CharSequence toT3d(UnrealPackageFile.ExportEntry entry, int indent) {
+    public CharSequence toT3d(UnrealPackage.ExportEntry entry, int indent) {
         return toT3d(instantiate(entry), indent);
     }
 
@@ -52,8 +51,8 @@ public class T3d {
         StringBuilder sb = new StringBuilder();
 
         sb.append("Begin Actor");
-        sb.append(" Class=").append(object.getEntry().getObjectClass().getObjectName().getName());
-        sb.append(" Name=").append(object.getEntry().getObjectName().getName());
+        sb.append(" Class=").append(object.entry.getObjectClass().getObjectName().getName());
+        sb.append(" Name=").append(object.entry.getObjectName().getName());
         sb.append(newLine(indent + 1)).append(decompileProperties(object, indent + 1));
         sb.append(newLine(indent)).append("End Actor");
 
@@ -63,13 +62,14 @@ public class T3d {
     public CharSequence decompileProperties(Object object, int indent) {
         Stream.Builder<CharSequence> properties = Stream.builder();
 
-        UnrealPackageReadOnly up = object.getEntry().getUnrealPackage();
+        UnrealPackage up = object.entry.getUnrealPackage();
 
-        object.getProperties().forEach(property -> {
+        object.properties.forEach(property -> {
+            StringBuilder sb = new StringBuilder();
+
             Property template = property.getTemplate();
-            for (int i = 0; i < template.arrayDimension; i++) {
-                StringBuilder sb = new StringBuilder();
 
+            for (int i = 0; i < template.arrayDimension; i++) {
                 java.lang.Object obj = property.getAt(i);
 
                 if (template instanceof ByteProperty) {
@@ -78,11 +78,9 @@ public class T3d {
                         sb.append("[").append(i).append("]");
                     }
                     sb.append("=");
-                    if (((ByteProperty) template).enumType != 0) {
-                        UnrealPackageReadOnly.Entry enumLocalEntry = ((ByteProperty) template).getEnumType();
-                        UnrealPackageReadOnly.ExportEntry enumEntry = objectFactory.getClassLoader().getExportEntry(enumLocalEntry.getObjectFullName(), e -> true);
-                        Enum en = (Enum) objectFactory.apply(enumEntry);
-                        sb.append(en.getValues().get((Integer) obj));
+                    if (((ByteProperty) template).enumType != null) {
+                        Enum en = ((ByteProperty) template).enumType;
+                        sb.append(en.values[(Integer) obj]);
                     } else {
                         sb.append(obj);
                     }
@@ -102,9 +100,9 @@ public class T3d {
                     sb.append("=");
                     sb.append(String.format(Locale.US, "%f", (Float) obj));
                 } else if (template instanceof ObjectProperty) {
-                    UnrealPackageReadOnly.Entry entry = up.objectReference((Integer) obj);
+                    UnrealPackage.Entry entry = up.objectReference((Integer) obj);
                     if (needExport(entry, template)) {
-                        properties.add(toT3d(instantiate((UnrealPackageReadOnly.ExportEntry) entry), indent));
+                        properties.add(toT3d(instantiate((UnrealPackage.ExportEntry) entry), indent));
                     }
                     sb.append(property.getName());
                     if (template.arrayDimension > 1) {
@@ -113,15 +111,15 @@ public class T3d {
                     sb.append("=");
                     if (entry == null) {
                         sb.append("None");
-                    } else if (entry instanceof UnrealPackageReadOnly.ImportEntry) {
-                        sb.append(((UnrealPackageReadOnly.ImportEntry) entry).getClassName().getName())
+                    } else if (entry instanceof UnrealPackage.ImportEntry) {
+                        sb.append(((UnrealPackage.ImportEntry) entry).getClassName().getName())
                                 .append("'")
                                 .append(entry.getObjectFullName())
                                 .append("'");
-                    } else if (entry instanceof UnrealPackageReadOnly.ExportEntry) {
+                    } else if (entry instanceof UnrealPackage.ExportEntry) {
                         String clazz = "Class";
-                        if (((UnrealPackageReadOnly.ExportEntry) entry).getObjectClass() != null)
-                            clazz = ((UnrealPackageReadOnly.ExportEntry) entry).getObjectClass().getObjectName().getName();
+                        if (((UnrealPackage.ExportEntry) entry).getObjectClass() != null)
+                            clazz = ((UnrealPackage.ExportEntry) entry).getObjectClass().getObjectName().getName();
                         sb.append(clazz)
                                 .append("'")
                                 .append(entry.getObjectInnerFullName())
@@ -138,23 +136,23 @@ public class T3d {
                     sb.append("'").append(Objects.toString(obj)).append("'");
                 } else if (template instanceof ArrayProperty) {
                     ArrayProperty arrayProperty = (ArrayProperty) property.getTemplate();
-                    Property innerProperty = (Property) objectFactory.apply(objectFactory.getClassLoader().getExportEntry(arrayProperty.getInner().getObjectFullName(), e -> true));
-                    L2Property fakeProperty = new L2Property(innerProperty, up);
+                    Property innerProperty = arrayProperty.inner;
+                    L2Property fakeProperty = new L2Property(innerProperty);
                     List<java.lang.Object> list = (List<java.lang.Object>) obj;
 
                     for (int j = 0; j < list.size(); j++) {
                         java.lang.Object innerObj = list.get(j);
 
                         if (innerProperty instanceof ObjectProperty) {
-                            UnrealPackageReadOnly.Entry entry = up.objectReference((Integer) innerObj);
+                            UnrealPackage.Entry entry = up.objectReference((Integer) innerObj);
                             if (needExport(entry, innerProperty)) {
-                                properties.add(toT3d(instantiate((UnrealPackageReadOnly.ExportEntry) entry), indent));
+                                properties.add(toT3d(instantiate((UnrealPackage.ExportEntry) entry), indent));
                             }
                         }
 
                         fakeProperty.putAt(0, innerObj);
                         if (j > 0)
-                            sb.append(newLine(indent));
+                            sb.append(newLine(indent)); //TODO
                         sb.append(property.getName()).append("(").append(j).append(")")
                                 .append("=")
                                 .append(inlineProperty(fakeProperty, up, true));
@@ -178,14 +176,15 @@ public class T3d {
                     sb.append("=");
                     sb.append("\"").append(Objects.toString(obj)).append("\"");
                 }
-                properties.add(sb);
             }
+
+            properties.add(sb);
         });
 
         return properties.build().collect(Collectors.joining(newLine(indent)));
     }
 
-    public CharSequence inlineProperty(L2Property property, UnrealPackageReadOnly up, boolean valueOnly) {
+    public CharSequence inlineProperty(L2Property property, UnrealPackage up, boolean valueOnly) {
         StringBuilder sb = new StringBuilder();
 
         Property template = property.getTemplate();
@@ -204,11 +203,9 @@ public class T3d {
             java.lang.Object object = property.getAt(i);
 
             if (template instanceof ByteProperty) {
-                if (((ByteProperty) template).enumType != 0) {
-                    UnrealPackageReadOnly.Entry enumLocalEntry = ((ByteProperty) template).getEnumType();
-                    UnrealPackageReadOnly.ExportEntry enumEntry = objectFactory.getClassLoader().getExportEntry(enumLocalEntry.getObjectFullName(), e -> true);
-                    Enum en = (Enum) objectFactory.apply(enumEntry);
-                    sb.append(en.getValues().get((Integer) object));
+                if (((ByteProperty) template).enumType != null) {
+                    Enum en = ((ByteProperty) template).enumType;
+                    sb.append(en.values[(Integer) object]);
                 } else {
                     sb.append(object);
                 }
@@ -218,21 +215,21 @@ public class T3d {
             } else if (template instanceof FloatProperty) {
                 sb.append(String.format(Locale.US, "%f", (Float) object));
             } else if (template instanceof ObjectProperty) {
-                UnrealPackageReadOnly.Entry entry = up.objectReference((Integer) object);
+                UnrealPackage.Entry entry = up.objectReference((Integer) object);
                 if (entry == null) {
                     sb.append("None");
-                } else if (entry instanceof UnrealPackageReadOnly.ImportEntry) {
-                    sb.append(((UnrealPackageReadOnly.ImportEntry) entry).getClassName().getName())
+                } else if (entry instanceof UnrealPackage.ImportEntry) {
+                    sb.append(((UnrealPackage.ImportEntry) entry).getClassName().getName())
                             .append("'")
                             .append(entry.getObjectFullName())
                             .append("'");
-                } else if (entry instanceof UnrealPackageReadOnly.ExportEntry) {
-                    if (template.getPropertyFlags().contains(Property.CPF.ExportObject)) {
+                } else if (entry instanceof UnrealPackage.ExportEntry) {
+                    if (Property.CPF.getFlags(template.propertyFlags).contains(Property.CPF.ExportObject)) {
                         sb.append("\"").append(entry.getObjectName().getName()).append("\"");
                     } else {
                         String clazz = "Class";
-                        if (((UnrealPackageReadOnly.ExportEntry) entry).getObjectClass() != null)
-                            clazz = ((UnrealPackageReadOnly.ExportEntry) entry).getObjectClass().getObjectName().getName();
+                        if (((UnrealPackage.ExportEntry) entry).getObjectClass() != null)
+                            clazz = ((UnrealPackage.ExportEntry) entry).getObjectClass().getObjectName().getName();
                         sb.append(clazz)
                                 .append("'")
                                 .append(entry.getObjectName().getName())
@@ -245,8 +242,8 @@ public class T3d {
                 sb.append("'").append(Objects.toString(object)).append("'");
             } else if (template instanceof ArrayProperty) {
                 ArrayProperty arrayProperty = (ArrayProperty) property.getTemplate();
-                Property innerProperty = (Property) objectFactory.apply(objectFactory.getClassLoader().getExportEntry(arrayProperty.getInner().getObjectFullName(), e -> true));
-                L2Property fakeProperty = new L2Property(innerProperty, up);
+                Property innerProperty = arrayProperty.inner;
+                L2Property fakeProperty = new L2Property(innerProperty);
                 List<java.lang.Object> list = (List<java.lang.Object>) object;
 
                 sb.append(list.stream()
@@ -271,26 +268,18 @@ public class T3d {
         return sb;
     }
 
-    public CharSequence inlineStruct(List<L2Property> struct, UnrealPackageReadOnly up) {
+    public CharSequence inlineStruct(List<L2Property> struct, UnrealPackage up) {
         return struct.stream().map(p -> inlineProperty(p, up, false)).collect(Collectors.joining(",", "(", ")"));
     }
 
-    public boolean needExport(UnrealPackageReadOnly.Entry entry, Property template) {
+    public boolean needExport(UnrealPackage.Entry entry, Property template) {
         return entry != null &&
-                entry instanceof UnrealPackageReadOnly.ExportEntry &&
-                (template.getPropertyFlags().contains(Property.CPF.ExportObject));
+                entry instanceof UnrealPackage.ExportEntry &&
+                (Property.CPF.getFlags(template.propertyFlags).contains(Property.CPF.ExportObject));
 
     }
 
-    private Object instantiate(UnrealPackageReadOnly.ExportEntry entry) {
-        String objClass = entry.getObjectClass() == null ? "Core.Class" : entry.getObjectClass().getObjectFullName();
-        if (objClass.equals("Core.Class") ||
-                objClass.equals("Core.State") ||
-                objClass.equals("Core.Function") ||
-                objClass.equals("Core.Struct")) {
-            return objectFactory.getClassLoader().getStruct(entry.getObjectFullName());
-        } else {
-            return objectFactory.apply(entry);
-        }
+    private Object instantiate(UnrealPackage.ExportEntry entry) {
+        return objectFactory.getOrCreateObject(entry);
     }
 }

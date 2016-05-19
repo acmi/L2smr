@@ -21,7 +21,7 @@
  */
 package acmi.l2.clientmod.l2smr.model;
 
-import acmi.l2.clientmod.io.UnrealPackageFile;
+import acmi.l2.clientmod.io.UnrealPackage;
 import acmi.l2.clientmod.l2smr.StaticMeshActorUtil;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -47,7 +47,7 @@ public class Actor {
     public Actor() {
     }
 
-    public Actor(int ind, String actorName, byte[] data, UnrealPackageFile up) {
+    public Actor(int ind, String actorName, byte[] data, UnrealPackage up) {
         this.ind = ind;
         this.actorName = actorName;
         this.offsets = StaticMeshActorUtil.getOffsets(data, up);

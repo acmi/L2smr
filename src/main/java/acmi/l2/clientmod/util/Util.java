@@ -22,9 +22,9 @@
 package acmi.l2.clientmod.util;
 
 import acmi.l2.clientmod.io.BufferUtil;
-import acmi.l2.clientmod.io.UnrealPackageFile;
+import acmi.l2.clientmod.io.UnrealPackage;
 import acmi.l2.clientmod.l2smr.StaticMeshActorUtil;
-import acmi.l2.clientmod.unreal.classloader.PropertiesUtil.Type;
+import acmi.l2.clientmod.unreal.properties.PropertiesUtil.Type;
 import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.TextField;
@@ -105,7 +105,7 @@ public class Util {
         BufferUtil.getCompactInt(buffer);
     }
 
-    public static void iterateProperties(ByteBuffer buffer, UnrealPackageFile up, TriConsumer<String, Integer, ByteBuffer> func) throws BufferUnderflowException {
+    public static void iterateProperties(ByteBuffer buffer, UnrealPackage up, TriConsumer<String, Integer, ByteBuffer> func) throws BufferUnderflowException {
         String name;
         while (!"None".equals(name = up.getNameTable().get(BufferUtil.getCompactInt(buffer)).getName())) {
             byte info = buffer.get();
@@ -132,11 +132,11 @@ public class Util {
     public static int getXY(File mapDir, String mapName) throws IOException {
         int[] m = new int[2];
 
-        try (UnrealPackageFile up = new UnrealPackageFile(new File(mapDir, mapName), true)) {
-            List<UnrealPackageFile.ExportEntry> infos = up.getExportTable().stream()
+        try (UnrealPackage up = new UnrealPackage(new File(mapDir, mapName), true)) {
+            List<UnrealPackage.ExportEntry> infos = up.getExportTable().stream()
                     .filter(e -> e.getObjectClass().getObjectFullName().equals("Engine.TerrainInfo"))
                     .collect(Collectors.toList());
-            for (UnrealPackageFile.ExportEntry e : infos) {
+            for (UnrealPackage.ExportEntry e : infos) {
                 byte[] staticMeshActor = e.getObjectRawData();
                 ByteBuffer buffer = ByteBuffer.wrap(staticMeshActor);
                 buffer.order(ByteOrder.LITTLE_ENDIAN);

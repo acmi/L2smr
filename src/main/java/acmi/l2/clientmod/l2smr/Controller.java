@@ -21,19 +21,17 @@
  */
 package acmi.l2.clientmod.l2smr;
 
-import acmi.l2.clientmod.io.UnrealPackageFile;
-import acmi.l2.clientmod.io.UnrealPackageReadOnly;
+import acmi.l2.clientmod.io.UnrealPackage;
 import acmi.l2.clientmod.l2smr.dialogs.ImportExportDialog;
 import acmi.l2.clientmod.l2smr.dialogs.ModifyDialog;
 import acmi.l2.clientmod.l2smr.dialogs.StaticMeshActorDialog;
 import acmi.l2.clientmod.l2smr.model.Actor;
 import acmi.l2.clientmod.l2smr.model.L2Map;
 import acmi.l2.clientmod.l2smr.model.Offsets;
-import acmi.l2.clientmod.unreal.classloader.FolderPackageLoader;
-import acmi.l2.clientmod.unreal.classloader.UnrealClassLoader;
-import acmi.l2.clientmod.unreal.objectfactory.ObjectFactory;
-import acmi.l2.clientmod.util.AutoCompleteComboBoxListener;
+import acmi.l2.clientmod.unreal.Environment;
+import acmi.l2.clientmod.unreal.UnrealSerializerFactory;
 import acmi.l2.clientmod.util.Util;
+import acmi.util.AutoCompleteComboBox;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
@@ -116,7 +114,7 @@ public class Controller implements Initializable {
     @FXML
     private TitledPane smaPane;
     @FXML
-    private ComboBox<UnrealPackageFile.ImportEntry> actorStaticMeshChooser;
+    private ComboBox<UnrealPackage.ImportEntry> actorStaticMeshChooser;
     @FXML
     private Button actorStaticMeshView;
     @FXML
@@ -163,7 +161,7 @@ public class Controller implements Initializable {
     private final ListProperty<Actor> actors = new SimpleListProperty<>();
     private final ObjectProperty<File> usx = new SimpleObjectProperty<>();
     private final StringProperty umodelPath = new SimpleStringProperty();
-    private final ObjectProperty<UnrealClassLoader> classLoader = new SimpleObjectProperty<>();
+    private final ObjectProperty<UnrealSerializerFactory> classLoader = new SimpleObjectProperty<>();
 
     public Stage getStage() {
         return stage.get();
@@ -288,7 +286,7 @@ public class Controller implements Initializable {
 
             unrChooser.setDisable(false);
 
-            new AutoCompleteComboBoxListener<>(unrChooser);
+            AutoCompleteComboBox.autoCompleteComboBox(unrChooser, AutoCompleteComboBox.AutoCompleteMode.CONTAINING);
         });
         this.unrChooser.getSelectionModel().selectedItemProperty().addListener((observable, oldValue, newValue) -> {
             table.getSelectionModel().clearSelection();
@@ -301,22 +299,22 @@ public class Controller implements Initializable {
             if (newValue == null)
                 return;
 
-            try (UnrealPackageFile up = new UnrealPackageFile(new File(mapsDir.get(), newValue), true)) {
+            try (UnrealPackage up = new UnrealPackage(new File(mapsDir.get(), newValue), true)) {
                 longTask(new Task<Void>() {
                     @Override
                     protected Void call() throws Exception {
-                        List<UnrealPackageFile.ImportEntry> staticMeshes = up.getImportTable()
+                        List<UnrealPackage.ImportEntry> staticMeshes = up.getImportTable()
                                 .parallelStream()
                                 .filter(ie -> ie.getFullClassName().equalsIgnoreCase("Engine.StaticMesh"))
                                 .sorted((ie1, ie2) -> String.CASE_INSENSITIVE_ORDER.compare(ie1.getObjectInnerFullName(), ie2.getObjectInnerFullName()))
                                 .collect(Collectors.toList());
                         Platform.runLater(() -> {
                             actorStaticMeshChooser.getItems().setAll(staticMeshes);
-                            new AutoCompleteComboBoxListener<>(actorStaticMeshChooser);
+                            AutoCompleteComboBox.autoCompleteComboBox(actorStaticMeshChooser, AutoCompleteComboBox.AutoCompleteMode.CONTAINING);
                         });
 
                         List<Actor> actors = up.getExportTable().parallelStream()
-                                .filter(e -> UnrealPackageReadOnly.ObjectFlag.getFlags(e.getObjectFlags()).contains(UnrealPackageReadOnly.ObjectFlag.HasStack))
+                                .filter(e -> UnrealPackage.ObjectFlag.getFlags(e.getObjectFlags()).contains(UnrealPackage.ObjectFlag.HasStack))
                                 .map(entry -> {
                                     try {
                                         return new Actor(entry.getIndex(), entry.getObjectInnerFullName(), entry.getObjectRawDataExternally(), up);
@@ -444,7 +442,7 @@ public class Controller implements Initializable {
                     .stream(newValue.listFiles(STATICMESH_FILE_FILTER))
                     .map(File::getName)
                     .collect(Collectors.toList()));
-            new AutoCompleteComboBoxListener<>(usxChooser);
+            AutoCompleteComboBox.autoCompleteComboBox(usxChooser, AutoCompleteComboBox.AutoCompleteMode.CONTAINING);
         });
         this.usx.bind(Bindings.createObjectBinding(() -> {
             String selected = usxChooser.getSelectionModel().getSelectedItem();
@@ -460,14 +458,14 @@ public class Controller implements Initializable {
                 return;
             }
 
-            try (UnrealPackageFile up = new UnrealPackageFile(newValue, true)) {
+            try (UnrealPackage up = new UnrealPackage(newValue, true)) {
                 smChooser.getItems().setAll(up.getExportTable().stream()
                         .filter(entry -> entry.getObjectClass().getObjectFullName().equals("Engine.StaticMesh"))
-                        .map(UnrealPackageFile.ExportEntry::getObjectInnerFullName)
+                        .map(UnrealPackage.ExportEntry::getObjectInnerFullName)
                         .sorted(String.CASE_INSENSITIVE_ORDER)
                         .collect(Collectors.toList()));
                 smChooser.setDisable(false);
-                new AutoCompleteComboBoxListener<>(smChooser);
+                AutoCompleteComboBox.autoCompleteComboBox(smChooser, AutoCompleteComboBox.AutoCompleteMode.CONTAINING);
             } catch (Exception e) {
                 showAlert(Alert.AlertType.WARNING, "Read failed", e.getClass().getSimpleName(), e.getMessage());
             }
@@ -492,7 +490,7 @@ public class Controller implements Initializable {
         this.classLoader.bind(Bindings.createObjectBinding(() -> {
             if (systemDir.get() == null)
                 return null;
-            return new UnrealClassLoader(new FolderPackageLoader(systemDir.get()));
+            return new UnrealSerializerFactory(Environment.fromIni(new File(systemDir.get(), "L2.ini")));
         }, systemDir));
     }
 
@@ -513,7 +511,7 @@ public class Controller implements Initializable {
         if (selected == null) {
             return;
         }
-        try (UnrealPackageFile up = new UnrealPackageFile(new File(this.mapsDir.get(), this.unrChooser.getSelectionModel().getSelectedItem()), false)) {
+        try (UnrealPackage up = new UnrealPackage(new File(this.mapsDir.get(), this.unrChooser.getSelectionModel().getSelectedItem()), false)) {
             int staticMesh = this.actorStaticMeshChooser.getSelectionModel().getSelectedItem().getObjectReference();
             float[] location = selected.getLocation();
             if (location != null) {
@@ -557,7 +555,7 @@ public class Controller implements Initializable {
                 }
             }
 
-            UnrealPackageFile.ExportEntry entry = up.getExportTable().get(selected.getInd());
+            UnrealPackage.ExportEntry entry = up.getExportTable().get(selected.getInd());
             byte[] raw = entry.getObjectRawData();
             Offsets offsets = selected.getOffsets();
             raw = StaticMeshActorUtil.setStaticMesh(raw, offsets, staticMesh);
@@ -587,7 +585,7 @@ public class Controller implements Initializable {
             this.table.getSelectionModel().getSelectedItem().setStaticMesh(this.actorStaticMeshChooser.getSelectionModel().getSelectedItem().toString());
             this.staticMeshColumn.setVisible(false);
             this.staticMeshColumn.setVisible(true);
-        } catch (IOException e) {
+        } catch (UncheckedIOException e) {
             showAlert(Alert.AlertType.ERROR, "Staticmesh set failed", e.getClass().getSimpleName(), e.getMessage());
         }
     }
@@ -596,11 +594,11 @@ public class Controller implements Initializable {
     private void addStaticMeshToUnr() {
         String usx = this.usxChooser.getSelectionModel().getSelectedItem();
         usx = usx.substring(0, usx.indexOf('.'));
-        try (UnrealPackageFile up = new UnrealPackageFile(new File(this.mapsDir.get(), this.unrChooser.getSelectionModel().getSelectedItem()), false)) {
-            up.addImportEntries(Collections.singletonMap(usx + "." + this.smChooser.getSelectionModel().getSelectedItem(), "Engine.StaticMesh"), false);
+        try (UnrealPackage up = new UnrealPackage(new File(this.mapsDir.get(), this.unrChooser.getSelectionModel().getSelectedItem()), false)) {
+            up.addImportEntries(Collections.singletonMap(usx + "." + this.smChooser.getSelectionModel().getSelectedItem(), "Engine.StaticMesh"));
 
             updateSMAPane();
-        } catch (IOException e) {
+        } catch (UncheckedIOException e) {
             showAlert(Alert.AlertType.ERROR, "Staticmesh import failed", e.getClass().getSimpleName(), e.getMessage());
         }
     }
@@ -611,7 +609,7 @@ public class Controller implements Initializable {
 
         String usx = this.usxChooser.getSelectionModel().getSelectedItem();
         usx = usx.substring(0, usx.indexOf('.'));
-        try (UnrealPackageFile up = new UnrealPackageFile(new File(this.mapsDir.get(), this.unrChooser.getSelectionModel().getSelectedItem()), false)) {
+        try (UnrealPackage up = new UnrealPackage(new File(this.mapsDir.get(), this.unrChooser.getSelectionModel().getSelectedItem()), false)) {
             StaticMeshActorDialog dlg = new StaticMeshActorDialog();
             ButtonType response = dlg.showAndWait().orElse(null);
             if (response != ButtonType.OK)
@@ -620,7 +618,7 @@ public class Controller implements Initializable {
             boolean rot = dlg.isRotating();
             boolean zrs = dlg.isZoneRenderState();
 
-            int actorInd = StaticMeshActorUtil.addStaticMeshActor(up, up.objectReference(usx + "." + this.smChooser.getSelectionModel().getSelectedItem()), dlg.getActorClass(), rot, zrs) - 1;
+            int actorInd = StaticMeshActorUtil.addStaticMeshActor(up, up.objectReferenceByName(usx + "." + this.smChooser.getSelectionModel().getSelectedItem(), c -> true), dlg.getActorClass(), rot, zrs) - 1;
 
             int ind = this.unrChooser.getSelectionModel().getSelectedIndex();
             this.unrChooser.getSelectionModel().clearSelection();
@@ -633,7 +631,7 @@ public class Controller implements Initializable {
 
             table.getSelectionModel().select(ind);
             table.scrollTo(ind);
-        } catch (IOException e) {
+        } catch (UncheckedIOException e) {
             showAlert(Alert.AlertType.ERROR, "Creation failed", e.getClass().getSimpleName(), e.getMessage());
         }
     }
@@ -709,7 +707,7 @@ public class Controller implements Initializable {
         if (selected == null)
             return;
 
-        try (UnrealPackageFile up = new UnrealPackageFile(new File(this.mapsDir.get(), this.unrChooser.getSelectionModel().getSelectedItem()), false)) {
+        try (UnrealPackage up = new UnrealPackage(new File(this.mapsDir.get(), this.unrChooser.getSelectionModel().getSelectedItem()), false)) {
             int actorInd = StaticMeshActorUtil.copyStaticMeshActor(up, selected.getInd()) - 1;
 
             int ind = this.unrChooser.getSelectionModel().getSelectedIndex();
@@ -738,15 +736,15 @@ public class Controller implements Initializable {
 
             updateSMAPane();
 
-            try (UnrealPackageFile up = new UnrealPackageFile(new File(this.mapsDir.get(), this.unrChooser.getSelectionModel().getSelectedItem()), false)) {
+            try (UnrealPackage up = new UnrealPackage(new File(this.mapsDir.get(), this.unrChooser.getSelectionModel().getSelectedItem()), false)) {
                 for (Actor actor : selected) {
-                    UnrealPackageFile.ExportEntry entry = up.getExportTable().get(actor.getInd());
+                    UnrealPackage.ExportEntry entry = up.getExportTable().get(actor.getInd());
                     byte[] raw = entry.getObjectRawData();
                     Offsets offsets = actor.getOffsets();
                     StaticMeshActorUtil.setLocation(raw, offsets, actor.getX(), actor.getY(), actor.getZ());
                     entry.setObjectRawData(raw);
                 }
-            } catch (IOException e) {
+            } catch (UncheckedIOException e) {
                 showAlert(Alert.AlertType.ERROR, "Staticmesh modify failed", e.getClass().getSimpleName(), e.getMessage());
             }
         }
@@ -862,18 +860,18 @@ public class Controller implements Initializable {
             longTask(new Task<Void>() {
                 @Override
                 protected Void call() throws Exception {
-                    try (UnrealPackageFile up = new UnrealPackageFile(new File(mapsDir.get(), unrChooser.getSelectionModel().getSelectedItem()), false)) {
+                    try (UnrealPackage up = new UnrealPackage(new File(mapsDir.get(), unrChooser.getSelectionModel().getSelectedItem()), false)) {
                         up.addImportEntries(map.getStaticMeshes().stream()
-                                .collect(Collectors.toMap(Actor::getStaticMesh, a -> "Engine.StaticMesh", (o1, o2) -> o1)), false);
+                                .collect(Collectors.toMap(Actor::getStaticMesh, a -> "Engine.StaticMesh", (o1, o2) -> o1)));
 
                         for (int i = 0; i < map.getStaticMeshes().size(); i++) {
                             Actor actor = map.getStaticMeshes().get(i);
 
-                            int newActorInd = StaticMeshActorUtil.addStaticMeshActor(up, up.objectReference(actor.getStaticMesh()), actor.getActorClass(), true, true);
-                            UnrealPackageFile.ExportEntry newActor = (UnrealPackageFile.ExportEntry) up.objectReference(newActorInd);
+                            int newActorInd = StaticMeshActorUtil.addStaticMeshActor(up, up.objectReferenceByName(actor.getStaticMesh(), c -> true), actor.getActorClass(), true, true);
+                            UnrealPackage.ExportEntry newActor = (UnrealPackage.ExportEntry) up.objectReference(newActorInd);
 
                             actor.setActorName(newActor.getObjectInnerFullName());
-                            actor.setStaticMeshRef(up.objectReference(actor.getStaticMesh()));
+                            actor.setStaticMeshRef(up.objectReferenceByName(actor.getStaticMesh(), c -> true));
 
                             byte[] bytes = newActor.getObjectRawData();
                             Offsets offsets = StaticMeshActorUtil.getOffsets(bytes, up);
@@ -942,10 +940,10 @@ public class Controller implements Initializable {
             longTask(new Task<Void>() {
                 @Override
                 protected Void call() throws Exception {
-                    T3d t3d = new T3d(new ObjectFactory(classLoader.get()));
-                    try (UnrealPackageFile up = new UnrealPackageFile(new File(mapsDir.get(), unrChooser.getSelectionModel().getSelectedItem()), false)) {
+                    T3d t3d = new T3d(classLoader.get());
+                    try (UnrealPackage up = new UnrealPackage(new File(mapsDir.get(), unrChooser.getSelectionModel().getSelectedItem()), false)) {
                         for (Actor actor : actors) {
-                            UnrealPackageFile.ExportEntry entry = up.getExportTable().get(actor.getInd());
+                            UnrealPackage.ExportEntry entry = up.getExportTable().get(actor.getInd());
                             try (Writer fos = new FileWriter(new File(dir, entry.getObjectName().getName() + ".t3d"))) {
                                 fos.write(t3d.toT3d(entry, 0).toString());
                             }
@@ -966,8 +964,8 @@ public class Controller implements Initializable {
                 @Override
                 protected Void call() throws Exception {
                     StringBuilder sb = new StringBuilder("Begin Map");
-                    T3d t3d = new T3d(new ObjectFactory(classLoader.get()));
-                    try (UnrealPackageFile up = new UnrealPackageFile(new File(mapsDir.get(), unrChooser.getSelectionModel().getSelectedItem()), false)) {
+                    T3d t3d = new T3d(classLoader.get());
+                    try (UnrealPackage up = new UnrealPackage(new File(mapsDir.get(), unrChooser.getSelectionModel().getSelectedItem()), false)) {
                         actors.stream()
                                 .map(actor -> up.getExportTable().get(actor.getInd()))
                                 .forEach(entry -> sb.append(Util.newLine()).append(t3d.toT3d(entry, 0)));

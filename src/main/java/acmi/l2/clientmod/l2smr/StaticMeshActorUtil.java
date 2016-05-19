@@ -21,12 +21,13 @@
  */
 package acmi.l2.clientmod.l2smr;
 
-import acmi.l2.clientmod.io.UnrealPackageFile;
+import acmi.l2.clientmod.io.UnrealPackage;
 import acmi.l2.clientmod.l2smr.model.Offsets;
-import acmi.l2.clientmod.unreal.classloader.PropertiesUtil.Type;
+import acmi.l2.clientmod.unreal.properties.PropertiesUtil.Type;
 import acmi.l2.clientmod.util.Util;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -38,10 +39,10 @@ import java.util.regex.Pattern;
 import static acmi.l2.clientmod.io.BufferUtil.getCompactInt;
 import static acmi.l2.clientmod.io.BufferUtil.putCompactInt;
 import static acmi.l2.clientmod.io.ByteUtil.compactIntToByteArray;
-import static acmi.l2.clientmod.io.UnrealPackageReadOnly.ObjectFlag.*;
+import static acmi.l2.clientmod.io.UnrealPackage.ObjectFlag.*;
 
 public class StaticMeshActorUtil {
-    public static Offsets getOffsets(byte[] staticMeshActor, UnrealPackageFile unrealPackage) throws BufferUnderflowException {
+    public static Offsets getOffsets(byte[] staticMeshActor, UnrealPackage unrealPackage) throws BufferUnderflowException {
         Offsets offsets = new Offsets();
         ByteBuffer buffer = ByteBuffer.wrap(staticMeshActor);
         buffer.order(ByteOrder.LITTLE_ENDIAN);
@@ -314,11 +315,11 @@ public class StaticMeshActorUtil {
         return count * 4 + (count > 63 ? 2 : 1);
     }
 
-    public static byte[] createActor(UnrealPackageFile up, String clazz, int staticMeshRef,
+    public static byte[] createActor(UnrealPackage up, String clazz, int staticMeshRef,
                                      boolean rotating, boolean zoneRenderState) {
         ByteBuffer buffer = ByteBuffer.allocate(0x100).order(ByteOrder.LITTLE_ENDIAN);
 
-        byte[] tmp = compactIntToByteArray(up.objectReference(clazz));
+        byte[] tmp = compactIntToByteArray(up.objectReferenceByName(clazz, c -> true));
         buffer.put(tmp);
         buffer.put(tmp);
         buffer.putLong(-1);
@@ -356,7 +357,7 @@ public class StaticMeshActorUtil {
             buffer.put((byte) 0x0);
         }
 
-        tmp = compactIntToByteArray(up.objectReference("LevelInfo0"));
+        tmp = compactIntToByteArray(up.objectReferenceByName("LevelInfo0", c -> c.equalsIgnoreCase("Engine.LevelInfo")));
         buffer.put(compactIntToByteArray(up.nameReference("Level")));
         buffer.put((byte) (Type.OBJECT.ordinal() | ((tmp.length - 1) << 4)));
         buffer.put(tmp);
@@ -433,7 +434,7 @@ public class StaticMeshActorUtil {
         return actor;
     }
 
-    public static final int STATIC_MESH_ACTOR_FLAGS = UnrealPackageFile.ObjectFlag.getFlags(
+    public static final int STATIC_MESH_ACTOR_FLAGS = UnrealPackage.ObjectFlag.getFlags(
             Transactional, LoadForServer, LoadForEdit, HasStack);
 
     /**
@@ -441,7 +442,7 @@ public class StaticMeshActorUtil {
      * @return object ref
      * @throws IOException
      */
-    public static int addStaticMeshActor(UnrealPackageFile up, int staticMesh, String clazz, boolean rotating, boolean zoneState) throws IOException {
+    public static int addStaticMeshActor(UnrealPackage up, int staticMesh, String clazz, boolean rotating, boolean zoneState) throws UncheckedIOException {
         Map<String, Integer> names = new HashMap<>();
 //                "StaticMesh",
 //                //"Region", "Zone", "iLeaf", "ZoneNumber",
@@ -452,33 +453,33 @@ public class StaticMeshActorUtil {
 //                "DrawScale", "DrawScale3D"
 //                //"TexModifyInfo", "bUseModify", "bTwoSide", "bAlphaBlend",
 //                //"bDummy", "Color", "AlphaOp", "ColorOp"
-        names.put("StaticMesh", UnrealPackageFile.PACKAGE_FLAGS);
-        names.put("bSunAffect", UnrealPackageFile.PACKAGE_FLAGS);
-        names.put("Tag", UnrealPackageFile.PACKAGE_FLAGS);
-        names.put("StaticMeshActor", UnrealPackageFile.PACKAGE_FLAGS);
-        names.put("Location", UnrealPackageFile.PACKAGE_FLAGS);
-        names.put("ColLocation", UnrealPackageFile.PACKAGE_FLAGS);
-        names.put("Vector", UnrealPackageFile.PACKAGE_FLAGS);
-        names.put("Rotation", UnrealPackageFile.PACKAGE_FLAGS);
-        names.put("SwayRotationOrig", UnrealPackageFile.PACKAGE_FLAGS);
-        names.put("Rotator", UnrealPackageFile.PACKAGE_FLAGS);
-        names.put("DrawScale", UnrealPackageFile.PACKAGE_FLAGS);
-        names.put("DrawScale3D", UnrealPackageFile.PACKAGE_FLAGS);
+        names.put("StaticMesh", UnrealPackage.DEFAULT_OBJECT_FLAGS);
+        names.put("bSunAffect", UnrealPackage.DEFAULT_OBJECT_FLAGS);
+        names.put("Tag", UnrealPackage.DEFAULT_OBJECT_FLAGS);
+        names.put("StaticMeshActor", UnrealPackage.DEFAULT_OBJECT_FLAGS);
+        names.put("Location", UnrealPackage.DEFAULT_OBJECT_FLAGS);
+        names.put("ColLocation", UnrealPackage.DEFAULT_OBJECT_FLAGS);
+        names.put("Vector", UnrealPackage.DEFAULT_OBJECT_FLAGS);
+        names.put("Rotation", UnrealPackage.DEFAULT_OBJECT_FLAGS);
+        names.put("SwayRotationOrig", UnrealPackage.DEFAULT_OBJECT_FLAGS);
+        names.put("Rotator", UnrealPackage.DEFAULT_OBJECT_FLAGS);
+        names.put("DrawScale", UnrealPackage.DEFAULT_OBJECT_FLAGS);
+        names.put("DrawScale3D", UnrealPackage.DEFAULT_OBJECT_FLAGS);
         if (rotating) {
-            names.put("RotationRate", UnrealPackageFile.PACKAGE_FLAGS);
-            names.put("Physics", UnrealPackageFile.PACKAGE_FLAGS);
-            names.put("bStatic", UnrealPackageFile.PACKAGE_FLAGS);
-            names.put("bFixedRotationDir", UnrealPackageFile.PACKAGE_FLAGS);
+            names.put("RotationRate", UnrealPackage.DEFAULT_OBJECT_FLAGS);
+            names.put("Physics", UnrealPackage.DEFAULT_OBJECT_FLAGS);
+            names.put("bStatic", UnrealPackage.DEFAULT_OBJECT_FLAGS);
+            names.put("bFixedRotationDir", UnrealPackage.DEFAULT_OBJECT_FLAGS);
         }
         if (zoneState) {
-            names.put("ZoneRenderState", UnrealPackageFile.PACKAGE_FLAGS);
-            names.put("DynamicActorFilterState", UnrealPackageFile.PACKAGE_FLAGS);
+            names.put("ZoneRenderState", UnrealPackage.DEFAULT_OBJECT_FLAGS);
+            names.put("DynamicActorFilterState", UnrealPackage.DEFAULT_OBJECT_FLAGS);
         }
 
         up.addNameEntries(names);
 
-        if (up.objectReference(clazz) == 0)
-            up.addImportEntries(Collections.singletonMap(clazz, "Core.Class"), false);
+        if (up.objectReferenceByName(clazz, c -> c.equalsIgnoreCase("Core.Class")) == 0)
+            up.addImportEntries(Collections.singletonMap(clazz, "Core.Class"));
 
         up.getNameTable();
         up.getImportTable();
@@ -495,13 +496,13 @@ public class StaticMeshActorUtil {
         up.getImportTable();
         up.getExportTable();
 
-        int newActorInd = up.objectReference(name);
+        int newActorInd = up.objectReferenceByName(name, c -> c.equalsIgnoreCase(clazz));
 
         //System.out.println("0x"+Integer.toHexString(newActorInd-1)+" "+name+" added");
 
         byte[] compact = compactIntToByteArray(newActorInd);
 
-        UnrealPackageFile.ExportEntry level = (UnrealPackageFile.ExportEntry) up.objectReference(up.objectReference("myLevel"));
+        UnrealPackage.ExportEntry level = (UnrealPackage.ExportEntry) up.objectReference(up.objectReferenceByName("myLevel", c -> c.equalsIgnoreCase("Engine.Level")));
         ByteBuffer levelBuffer = ByteBuffer.wrap(level.getObjectRawData()).order(ByteOrder.LITTLE_ENDIAN);
 
         byte[] newBytes = new byte[levelBuffer.capacity() + compact.length];
@@ -531,8 +532,8 @@ public class StaticMeshActorUtil {
         return newActorInd;
     }
 
-    public static int copyStaticMeshActor(UnrealPackageFile up, int ind) throws IOException {
-        UnrealPackageFile.ExportEntry entry = up.getExportTable().get(ind);
+    public static int copyStaticMeshActor(UnrealPackage up, int ind) throws IOException {
+        UnrealPackage.ExportEntry entry = up.getExportTable().get(ind);
 
         String name = entry.getObjectClass().getObjectName().getName() + sm(entry.getObjectClass().getObjectName().getName(), up);
         up.addExportEntry(name, entry.getObjectClass().getObjectFullName(), null, entry.getObjectRawData(), entry.getObjectFlags());
@@ -541,13 +542,13 @@ public class StaticMeshActorUtil {
         up.getImportTable();
         up.getExportTable();
 
-        int newActorInd = up.objectReference(name);
+        int newActorInd = up.objectReferenceByName(name, c -> c.equalsIgnoreCase(entry.getObjectClass().getObjectFullName()));
 
         //System.out.println("0x"+Integer.toHexString(newActorInd-1)+" "+name+" added");
 
         byte[] compact = compactIntToByteArray(newActorInd);
 
-        UnrealPackageFile.ExportEntry level = (UnrealPackageFile.ExportEntry) up.objectReference(up.objectReference("myLevel"));
+        UnrealPackage.ExportEntry level = (UnrealPackage.ExportEntry) up.objectReference(up.objectReferenceByName("myLevel", c -> c.equalsIgnoreCase("Engine.Level")));
         ByteBuffer levelBuffer = ByteBuffer.wrap(level.getObjectRawData()).order(ByteOrder.LITTLE_ENDIAN);
 
         byte[] newBytes = new byte[levelBuffer.capacity() + compact.length];
@@ -577,7 +578,7 @@ public class StaticMeshActorUtil {
         return newActorInd;
     }
 
-    private static int sm(String clazz, UnrealPackageFile up) {
+    private static int sm(String clazz, UnrealPackage up) {
         Pattern pattern = Pattern.compile(clazz + "\\d+");
         return 1 + up.getExportTable()
                 .stream()

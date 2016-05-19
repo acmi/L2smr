@@ -1,13 +1,35 @@
 group 'acmi.l2.clientmod'
-version '1.3'
+version '1.4'
 
 apply plugin: 'java'
 
 repositories {
     mavenCentral()
+    maven { url "https://raw.githubusercontent.com/acmi/L2io/mvn-repo" }
+    maven { url "https://raw.githubusercontent.com/acmi/Serializer/mvn-repo" }
+    maven { url "https://raw.githubusercontent.com/acmi/L2Crypt/mvn-repo" }
+    maven { url "https://raw.githubusercontent.com/acmi/L2unreal/mvn-repo" }
+    maven { url "https://raw.githubusercontent.com/acmi/AutoCompleteComboBox/mvn-repo" }
 }
 
 dependencies {
-    compile files('libs/l2io.jar')
+    compile group:'acmi.l2.clientmod', name:'l2io', version: '2.0'
+    compile group:'acmi.l2.clientmod', name:'l2unreal', version: '1.0'
+    compile group:'acmi.util', name:'autocomletecombobox', version: '1.0'
     compile group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: '2.7.1-1'
+}
+
+jar {
+    archiveName = "${rootProject.name}.jar"
+
+    configurations.compile.collect {
+        from(zipTree(it)) {
+            exclude 'META-INF/**'
+        }
+    }
+
+    manifest {
+        attributes('Main-Class': 'acmi.l2.clientmod.l2smr.L2smr')
+        attributes('Version': version)
+    }
 }
