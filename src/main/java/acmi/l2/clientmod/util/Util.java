@@ -75,7 +75,8 @@ public class Util {
         try {
             return Double.valueOf(textField.getText());
         } catch (NumberFormatException nfe) {
-            textField.setText("");
+            if (!textField.getText().equals("-"))
+                textField.setText("");
             return null;
         }
     }
