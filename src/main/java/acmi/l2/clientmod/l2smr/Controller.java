@@ -65,6 +65,7 @@ import java.util.stream.Collectors;
 
 import static acmi.l2.clientmod.util.CollectionsMethods.indexIf;
 import static acmi.l2.clientmod.util.Util.*;
+import static acmi.util.AutoCompleteComboBox.getSelectedItem;
 import static javafx.scene.input.KeyCombination.keyCombination;
 
 @SuppressWarnings({"ConstantConditions", "unused"})
@@ -942,10 +943,5 @@ public class Controller implements Initializable {
         task.setOnSucceeded(event -> Platform.runLater(() -> progress.setVisible(false)));
 
         ForkJoinPool.commonPool().submit(task);
-    }
-
-    public static <T> T getSelectedItem(ComboBox<T> comboBox) {
-        int index = comboBox.getSelectionModel().getSelectedIndex();
-        return index < 0 ? null : comboBox.getItems().get(index);
     }
 }
