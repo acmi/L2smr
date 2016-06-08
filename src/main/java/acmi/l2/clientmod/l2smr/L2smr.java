@@ -25,8 +25,6 @@ import javafx.application.Application;
 import javafx.beans.binding.Bindings;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleObjectProperty;
-import javafx.beans.property.SimpleStringProperty;
-import javafx.beans.property.StringProperty;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
@@ -43,7 +41,6 @@ import java.util.prefs.Preferences;
 
 public class L2smr extends Application {
     private final ObjectProperty<File> l2Dir = new SimpleObjectProperty<>();
-    private final StringProperty umodelPath = new SimpleStringProperty();
 
     @Override
     public void start(Stage stage) throws Exception {
@@ -62,7 +59,6 @@ public class L2smr extends Application {
 
         Controller controller = loader.getController();
         controller.l2DirProperty().bindBidirectional(l2Dir);
-        controller.umodelPathProperty().bindBidirectional(umodelPath);
         controller.setStage(stage);
 
         stage.show();
@@ -85,20 +81,10 @@ public class L2smr extends Application {
             l2Dir.set(new File(getPrefs().get("path.l2", null)));
         } catch (Exception ignore) {
         }
-        try {
-            umodelPath.set(getPrefs().get("path.umodel", null));
-        } catch (Exception ignore) {
-        }
 
         l2Dir.addListener(observable -> {
             try {
                 getPrefs().put("path.l2", l2Dir.get().getPath());
-            } catch (Exception ignore) {
-            }
-        });
-        umodelPath.addListener(observable -> {
-            try {
-                getPrefs().put("path.umodel", umodelPath.get());
             } catch (Exception ignore) {
             }
         });

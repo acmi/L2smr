@@ -28,6 +28,7 @@ import acmi.l2.clientmod.l2smr.dialogs.StaticMeshActorDialog;
 import acmi.l2.clientmod.l2smr.model.Actor;
 import acmi.l2.clientmod.l2smr.model.L2Map;
 import acmi.l2.clientmod.l2smr.model.Offsets;
+import acmi.l2.clientmod.l2smr.smview.SMView;
 import acmi.l2.clientmod.unreal.Environment;
 import acmi.l2.clientmod.unreal.UnrealSerializerFactory;
 import acmi.l2.clientmod.util.Util;
@@ -160,7 +161,6 @@ public class Controller implements Initializable {
     private final ObjectProperty<File> systemDir = new SimpleObjectProperty<>();
     private final ListProperty<Actor> actors = new SimpleListProperty<>();
     private final ObjectProperty<File> usx = new SimpleObjectProperty<>();
-    private final StringProperty umodelPath = new SimpleStringProperty();
     private final ObjectProperty<UnrealSerializerFactory> classLoader = new SimpleObjectProperty<>();
 
     public Stage getStage() {
@@ -185,18 +185,6 @@ public class Controller implements Initializable {
 
     public void setL2Dir(File l2Dir) {
         this.l2Dir.set(l2Dir);
-    }
-
-    public String getUmodelPath() {
-        return umodelPath.get();
-    }
-
-    public StringProperty umodelPathProperty() {
-        return umodelPath;
-    }
-
-    public void setUmodelPath(String umodelPath) {
-        this.umodelPath.set(umodelPath);
     }
 
     @Override
@@ -245,7 +233,6 @@ public class Controller implements Initializable {
         Map<KeyCombination, Runnable> keyCombinations = new HashMap<>();
         keyCombinations.put(keyCombination("F1"), this::showHelp);
         keyCombinations.put(keyCombination("CTRL+O"), this::chooseL2Folder);
-        keyCombinations.put(keyCombination("CTRL+U"), this::selectUmodel);
         keyCombinations.put(keyCombination("CTRL+M"), this::modify);
         keyCombinations.put(keyCombination("CTRL+E"), this::exportSM);
         keyCombinations.put(keyCombination("CTRL+I"), this::importSM);
@@ -651,54 +638,9 @@ public class Controller implements Initializable {
     }
 
     private void showUmodel(final String obj, final String file) {
-        if (this.umodelPath.get() == null && !selectUmodel())
-            return;
-
-        Thread umodel = new Thread(() -> {
-            try {
-                File f = Arrays.stream(staticMeshDir.get().listFiles())
-                        .filter(tmp -> tmp.getName().equalsIgnoreCase(file))
-                        .findAny()
-                        .orElse(null);
-
-                ProcessBuilder pb = new ProcessBuilder(
-                        umodelPath.get(),
-                        "-view", "-game=l2",
-                        "-obj=" + obj.substring(obj.lastIndexOf('.') + 1),
-                        f.getAbsolutePath());
-                pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
-
-                Process process = pb.start();
-
-                StringBuilder sb = new StringBuilder();
-                BufferedReader br = new BufferedReader(new InputStreamReader(process.getErrorStream()));
-
-                process.waitFor();
-
-                br.lines().forEach(line -> sb.append(line).append("\r\n"));
-
-                if (sb.length() > 0) {
-                    String errText = sb.toString();
-                    Platform.runLater(() -> showAlert(Alert.AlertType.WARNING, "View error", "Umodel output", errText.replaceAll("\\<-", "\r\n\\<-")));
-                }
-            } catch (Exception e) {
-                Platform.runLater(() -> showAlert(Alert.AlertType.ERROR, "View error", e.getClass().getSimpleName(), e.getMessage()));
-            }
-        });
-        umodel.setPriority(Thread.MIN_PRIORITY);
-        umodel.setDaemon(true);
-        umodel.start();
-    }
-
-    private boolean selectUmodel() {
-        FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle("Select umodel");
-        File file = fileChooser.showOpenDialog(getStage());
-        if (file == null) {
-            return false;
-        }
-        this.umodelPath.setValue(file.getAbsolutePath());
-        return true;
+        Stage stage = new Stage();
+        new SMView(stage, staticMeshDir.get(), file, obj);
+        stage.show();
     }
 
     @FXML

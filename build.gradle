@@ -1,5 +1,5 @@
 group 'acmi.l2.clientmod'
-version '1.4.2'
+version '1.5'
 
 apply plugin: 'java'
 
@@ -13,10 +13,10 @@ repositories {
 }
 
 dependencies {
-    compile group: 'acmi.l2.clientmod', name: 'l2io', version: '2.1.1'
-    compile group: 'acmi.l2.clientmod', name: 'l2unreal', version: '1.0'
+    compile group: 'acmi.l2.clientmod', name: 'l2unreal', version: '1.2'
     compile group: 'acmi.util', name: 'autocomletecombobox', version: '1.0'
     compile group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: '2.7.1-1'
+    compile files('lib/jsquish.jar')
 }
 
 jar {
