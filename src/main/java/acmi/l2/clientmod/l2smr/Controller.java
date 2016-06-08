@@ -512,7 +512,7 @@ public class Controller implements Initializable {
             return;
         }
         try (UnrealPackage up = new UnrealPackage(new File(this.mapsDir.get(), this.unrChooser.getSelectionModel().getSelectedItem()), false)) {
-            int staticMesh = this.actorStaticMeshChooser.getSelectionModel().getSelectedItem().getObjectReference();
+            int staticMesh = getSelectedItem(this.actorStaticMeshChooser).getObjectReference();
             float[] location = selected.getLocation();
             if (location != null) {
                 location[0] = getFloat(this.locationX, location[0]);
@@ -582,7 +582,7 @@ public class Controller implements Initializable {
             entry.setObjectRawData(raw);
 
             this.table.getSelectionModel().getSelectedItem().setStaticMeshRef(staticMesh);
-            this.table.getSelectionModel().getSelectedItem().setStaticMesh(this.actorStaticMeshChooser.getSelectionModel().getSelectedItem().toString());
+            this.table.getSelectionModel().getSelectedItem().setStaticMesh(getSelectedItem(this.actorStaticMeshChooser).toString());
             this.staticMeshColumn.setVisible(false);
             this.staticMeshColumn.setVisible(true);
         } catch (UncheckedIOException e) {
@@ -645,7 +645,7 @@ public class Controller implements Initializable {
 
     @FXML
     private void viewActorStaticMesh() {
-        String obj = this.actorStaticMeshChooser.getSelectionModel().getSelectedItem().toString();
+        String obj = getSelectedItem(this.actorStaticMeshChooser).toString();
         String file = obj.substring(0, obj.indexOf('.')) + ".usx";
         showUmodel(obj, file);
     }
@@ -1000,5 +1000,10 @@ public class Controller implements Initializable {
         task.setOnSucceeded(event -> Platform.runLater(() -> progress.setVisible(false)));
 
         ForkJoinPool.commonPool().submit(task);
+    }
+
+    public static <T> T getSelectedItem(ComboBox<T> comboBox) {
+        int index = comboBox.getSelectionModel().getSelectedIndex();
+        return index < 0 ? null : comboBox.getItems().get(index);
     }
 }
