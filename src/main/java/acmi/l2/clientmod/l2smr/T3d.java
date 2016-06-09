@@ -133,7 +133,7 @@ public class T3d {
                         sb.append("[").append(i).append("]");
                     }
                     sb.append("=");
-                    sb.append("'").append(Objects.toString(obj)).append("'");
+                    sb.append("'").append(up.nameReference((Integer) obj)).append("'");
                 } else if (template instanceof ArrayProperty) {
                     ArrayProperty arrayProperty = (ArrayProperty) property.getTemplate();
                     Property innerProperty = arrayProperty.inner;
