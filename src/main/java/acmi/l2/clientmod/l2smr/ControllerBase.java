@@ -29,9 +29,9 @@ import javafx.beans.property.ReadOnlyObjectProperty;
 import javafx.beans.property.SimpleObjectProperty;
 
 import java.io.File;
-import java.util.Arrays;
-import java.util.function.Predicate;
-import java.util.stream.Stream;
+
+import static acmi.l2.clientmod.util.Util.find;
+import static acmi.l2.clientmod.util.Util.nameFilter;
 
 public class ControllerBase {
     private final ObjectProperty<File> l2Dir = new SimpleObjectProperty<>();
@@ -96,26 +96,5 @@ public class ControllerBase {
         }, systemDirProperty()));
         classLoaderProperty().addListener((observable, oldValue, newValue) -> {
         });
-    }
-
-    private static Predicate<File> nameFilter(String name) {
-        return f -> f.getName().equalsIgnoreCase(name);
-    }
-
-    @SafeVarargs
-    protected static File find(File folder, Predicate<File>... filters) {
-        if (folder == null)
-            return null;
-
-        File[] children = folder.listFiles();
-        if (children == null)
-            return null;
-
-        Stream<File> stream = Arrays.stream(children);
-        for (Predicate<File> filter : filters)
-            stream = stream.filter(filter);
-        return stream
-                .findAny()
-                .orElse(null);
     }
 }

@@ -38,7 +38,9 @@ import javafx.beans.property.*;
 import javafx.beans.value.ObservableBooleanValue;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
+import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -627,9 +629,21 @@ public class Controller extends ControllerBase implements Initializable {
 
     private void showUmodel(final String obj, final String file) {
         Platform.runLater(() -> {
-            Stage stage = new Stage();
-            new SMView(stage, getStaticMeshDir(), file, obj);
-            stage.show();
+            try {
+                FXMLLoader loader = new FXMLLoader(getClass().getResource("smview/smview.fxml"));
+                loader.load();
+                SMView controller = loader.getController();
+                controller.setStaticmesh(getStaticMeshDir(), file, obj);
+                Scene scene = new Scene(loader.getRoot());
+                scene.setOnKeyReleased(controller::onKeyReleased);
+
+                Stage smStage = new Stage();
+                smStage.setScene(scene);
+                smStage.setTitle(obj);
+                smStage.show();
+            } catch (IOException e) {
+                onException("Couldn't show staticmesh", e);
+            }
         });
     }
 

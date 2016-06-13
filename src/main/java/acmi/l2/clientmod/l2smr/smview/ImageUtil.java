@@ -73,7 +73,7 @@ public class ImageUtil {
         BufferedImage copy = new BufferedImage(img.getWidth(), img.getHeight(), BufferedImage.TYPE_INT_RGB);
         for (int x = 0; x < img.getWidth(); x++)
             for (int y = 0; y < img.getHeight(); y++)
-                copy.setRGB(x,y,img.getRGB(x,y));
+                copy.setRGB(x, y, img.getRGB(x, y));
         return copy;
     }
 

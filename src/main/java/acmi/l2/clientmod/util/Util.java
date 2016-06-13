@@ -34,8 +34,11 @@ import java.io.IOException;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Arrays;
 import java.util.List;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static acmi.l2.clientmod.io.BufferUtil.getCompactInt;
 
@@ -180,5 +183,26 @@ public class Util {
         while (t.getCause() != null)
             t = t.getCause();
         return t;
+    }
+
+    public static Predicate<File> nameFilter(String name) {
+        return f -> f.getName().equalsIgnoreCase(name);
+    }
+
+    @SafeVarargs
+    public static File find(File folder, Predicate<File>... filters) {
+        if (folder == null)
+            return null;
+
+        File[] children = folder.listFiles();
+        if (children == null)
+            return null;
+
+        Stream<File> stream = Arrays.stream(children);
+        for (Predicate<File> filter : filters)
+            stream = stream.filter(filter);
+        return stream
+                .findAny()
+                .orElse(null);
     }
 }
