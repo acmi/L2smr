@@ -72,6 +72,11 @@ public class T3d {
             for (int i = 0; i < template.arrayDimension; i++) {
                 java.lang.Object obj = property.getAt(i);
 
+                if (template instanceof StructProperty) {
+                    if (obj == null || ((List) obj).isEmpty())
+                        continue;
+                }
+
                 if (i > 0)
                     sb.append(newLine(indent));
 
@@ -166,11 +171,7 @@ public class T3d {
                         sb.append("[").append(i).append("]");
                     }
                     sb.append("=");
-                    if (obj == null) {
-                        sb.append("None");
-                    } else {
-                        sb.append(inlineStruct((List<L2Property>) obj, up));
-                    }
+                    sb.append(inlineStruct((List<L2Property>) obj, up));
                 } else if (template instanceof StrProperty) {
                     sb.append(property.getName());
                     if (template.arrayDimension > 1) {
