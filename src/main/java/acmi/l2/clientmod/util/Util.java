@@ -21,7 +21,6 @@
  */
 package acmi.l2.clientmod.util;
 
-import acmi.l2.clientmod.io.BufferUtil;
 import acmi.l2.clientmod.io.UnrealPackage;
 import acmi.l2.clientmod.l2smr.StaticMeshActorUtil;
 import acmi.l2.clientmod.unreal.properties.PropertiesUtil.Type;
@@ -37,6 +36,8 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import static acmi.l2.clientmod.io.BufferUtil.getCompactInt;
 
 public class Util {
     public static final FileFilter MAP_FILE_FILTER = pathname ->
@@ -99,22 +100,22 @@ public class Util {
     }
 
     public static void readStateFrame(ByteBuffer buffer) throws BufferUnderflowException {
-        BufferUtil.getCompactInt(buffer);
-        BufferUtil.getCompactInt(buffer);
+        getCompactInt(buffer);
+        getCompactInt(buffer);
         buffer.getLong();
         buffer.getInt();
-        BufferUtil.getCompactInt(buffer);
+        getCompactInt(buffer);
     }
 
     public static void iterateProperties(ByteBuffer buffer, UnrealPackage up, TriConsumer<String, Integer, ByteBuffer> func) throws BufferUnderflowException {
         String name;
-        while (!"None".equals(name = up.getNameTable().get(BufferUtil.getCompactInt(buffer)).getName())) {
+        while (!"None".equals(name = up.getNameTable().get(getCompactInt(buffer)).getName())) {
             byte info = buffer.get();
             Type type = Type.values()[info & 15];
             int size = (info & 112) >> 4;
             boolean array = (info & 128) == 128;
             if (type == Type.STRUCT) {
-                BufferUtil.getCompactInt(buffer);
+                getCompactInt(buffer);
             }
 
             size = StaticMeshActorUtil.getSize(size, buffer);
@@ -173,5 +174,11 @@ public class Util {
 
     public static CharSequence newLine() {
         return newLine(0);
+    }
+
+    public static Throwable getTop(Throwable t) {
+        while (t.getCause() != null)
+            t = t.getCause();
+        return t;
     }
 }
