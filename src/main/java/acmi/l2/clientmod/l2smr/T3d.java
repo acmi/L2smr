@@ -72,6 +72,9 @@ public class T3d {
             for (int i = 0; i < template.arrayDimension; i++) {
                 java.lang.Object obj = property.getAt(i);
 
+                if (i > 0)
+                    sb.append(newLine(indent));
+
                 if (template instanceof ByteProperty) {
                     sb.append(property.getName());
                     if (template.arrayDimension > 1) {
