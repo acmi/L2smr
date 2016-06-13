@@ -335,7 +335,7 @@ public class StaticMeshActorUtil {
             buffer.put((byte) 0x01);
             buffer.putInt(1);
 
-            buffer.put(compactIntToByteArray(up.nameReference("DynamicActorFilterState")));
+            buffer.put(compactIntToByteArray(up.nameReference("bDynamicActorFilterState")));
             buffer.put((byte) 0xD3);
             buffer.put((byte) 0x00);
         }
@@ -473,7 +473,7 @@ public class StaticMeshActorUtil {
         }
         if (zoneState) {
             names.put("ZoneRenderState", UnrealPackage.DEFAULT_OBJECT_FLAGS);
-            names.put("DynamicActorFilterState", UnrealPackage.DEFAULT_OBJECT_FLAGS);
+            names.put("bDynamicActorFilterState", UnrealPackage.DEFAULT_OBJECT_FLAGS);
         }
 
         up.addNameEntries(names);
