@@ -48,6 +48,7 @@ import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.input.KeyEvent;
+import javafx.scene.input.MouseButton;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Priority;
 import javafx.stage.DirectoryChooser;
@@ -332,6 +333,14 @@ public class Controller extends ControllerBase implements Initializable {
         this.staticMeshColumn.setCellValueFactory(actorStringCellDataFeatures -> new SimpleStringProperty(actorStringCellDataFeatures.getValue().getStaticMesh()));
         this.table.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
         this.table.getSelectionModel().selectedItemProperty().addListener((observable) -> updateSMAPane());
+
+        this.table.setOnMouseClicked(event -> {
+            if (event.getButton() == MouseButton.PRIMARY && event.getClickCount() == 2) {
+                String obj = table.getSelectionModel().getSelectedItem().getStaticMesh();
+                String file = obj.substring(0, obj.indexOf('.')) + ".usx";
+                showUmodel(obj, file);
+            }
+        });
     }
 
     private void updateSMAPane() {
