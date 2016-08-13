@@ -33,6 +33,8 @@ import acmi.l2.clientmod.util.Util;
 import acmi.util.AutoCompleteComboBox;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import javafx.application.Platform;
+import javafx.beans.*;
+import javafx.beans.Observable;
 import javafx.beans.binding.Bindings;
 import javafx.beans.property.*;
 import javafx.beans.value.ObservableBooleanValue;
@@ -650,6 +652,22 @@ public class Controller extends ControllerBase implements Initializable {
                 smStage.setScene(scene);
                 smStage.setTitle(obj);
                 smStage.show();
+
+                smStage.setX(Double.parseDouble(L2smr.getPrefs().get("smview.x", String.valueOf(smStage.getX()))));
+                smStage.setY(Double.parseDouble(L2smr.getPrefs().get("smview.y", String.valueOf(smStage.getY()))));
+                smStage.setWidth(Double.parseDouble(L2smr.getPrefs().get("smview.width", String.valueOf(smStage.getWidth()))));
+                smStage.setHeight(Double.parseDouble(L2smr.getPrefs().get("smview.height", String.valueOf(smStage.getHeight()))));
+
+                InvalidationListener listener = observable -> {
+                    L2smr.getPrefs().put("smview.x", String.valueOf(Math.round(smStage.getX())));
+                    L2smr.getPrefs().put("smview.y", String.valueOf(Math.round(smStage.getY())));
+                    L2smr.getPrefs().put("smview.width", String.valueOf(Math.round(smStage.getWidth())));
+                    L2smr.getPrefs().put("smview.height", String.valueOf(Math.round(smStage.getHeight())));
+                };
+                smStage.xProperty().addListener(listener);
+                smStage.yProperty().addListener(listener);
+                smStage.widthProperty().addListener(listener);
+                smStage.heightProperty().addListener(listener);
             } catch (IOException e) {
                 onException("Couldn't show staticmesh", e);
             }

@@ -22,6 +22,7 @@
 package acmi.l2.clientmod.l2smr;
 
 import javafx.application.Application;
+import javafx.beans.InvalidationListener;
 import javafx.beans.binding.Bindings;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleObjectProperty;
@@ -62,6 +63,22 @@ public class L2smr extends Application {
         controller.setStage(stage);
 
         stage.show();
+
+        stage.setX(Double.parseDouble(L2smr.getPrefs().get("l2smr.x", String.valueOf(stage.getX()))));
+        stage.setY(Double.parseDouble(L2smr.getPrefs().get("l2smr.y", String.valueOf(stage.getY()))));
+        stage.setWidth(Double.parseDouble(L2smr.getPrefs().get("l2smr.width", String.valueOf(stage.getWidth()))));
+        stage.setHeight(Double.parseDouble(L2smr.getPrefs().get("l2smr.height", String.valueOf(stage.getHeight()))));
+
+        InvalidationListener listener = observable -> {
+            L2smr.getPrefs().put("l2smr.x", String.valueOf(Math.round(stage.getX())));
+            L2smr.getPrefs().put("l2smr.y", String.valueOf(Math.round(stage.getY())));
+            L2smr.getPrefs().put("l2smr.width", String.valueOf(Math.round(stage.getWidth())));
+            L2smr.getPrefs().put("l2smr.height", String.valueOf(Math.round(stage.getHeight())));
+        };
+        stage.xProperty().addListener(listener);
+        stage.yProperty().addListener(listener);
+        stage.widthProperty().addListener(listener);
+        stage.heightProperty().addListener(listener);
     }
 
     private String readAppVersion() throws IOException, URISyntaxException {
@@ -90,7 +107,7 @@ public class L2smr extends Application {
         });
     }
 
-    private static Preferences getPrefs() {
+    static Preferences getPrefs() {
         return Preferences.userRoot().node("l2smr");
     }
 
