@@ -22,13 +22,16 @@
 package acmi.l2.clientmod.l2smr;
 
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.beans.InvalidationListener;
 import javafx.beans.binding.Bindings;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.fxml.FXMLLoader;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.stage.Screen;
 import javafx.stage.Stage;
 
 import java.io.File;
@@ -62,23 +65,44 @@ public class L2smr extends Application {
         controller.l2DirProperty().bindBidirectional(l2Dir);
         controller.setStage(stage);
 
+        stage.setWidth(Double.parseDouble(L2smr.windowPrefs().get("width", String.valueOf(stage.getWidth()))));
+        stage.setHeight(Double.parseDouble(L2smr.windowPrefs().get("height", String.valueOf(stage.getHeight()))));
+        if (L2smr.windowPrefs().getBoolean("maximized", stage.isMaximized())) {
+            stage.setMaximized(true);
+        } else {
+            Rectangle2D bounds = new Rectangle2D(
+                    Double.parseDouble(L2smr.windowPrefs().get("x", String.valueOf(stage.getX()))),
+                    Double.parseDouble(L2smr.windowPrefs().get("y", String.valueOf(stage.getY()))),
+                    stage.getWidth(),
+                    stage.getHeight());
+            if (Screen.getScreens()
+                    .stream()
+                    .map(Screen::getVisualBounds)
+                    .anyMatch(r -> r.intersects(bounds))) {
+                stage.setX(bounds.getMinX());
+                stage.setY(bounds.getMinY());
+            }
+        }
+
         stage.show();
 
-        stage.setX(Double.parseDouble(L2smr.getPrefs().get("l2smr.x", String.valueOf(stage.getX()))));
-        stage.setY(Double.parseDouble(L2smr.getPrefs().get("l2smr.y", String.valueOf(stage.getY()))));
-        stage.setWidth(Double.parseDouble(L2smr.getPrefs().get("l2smr.width", String.valueOf(stage.getWidth()))));
-        stage.setHeight(Double.parseDouble(L2smr.getPrefs().get("l2smr.height", String.valueOf(stage.getHeight()))));
-
-        InvalidationListener listener = observable -> {
-            L2smr.getPrefs().put("l2smr.x", String.valueOf(Math.round(stage.getX())));
-            L2smr.getPrefs().put("l2smr.y", String.valueOf(Math.round(stage.getY())));
-            L2smr.getPrefs().put("l2smr.width", String.valueOf(Math.round(stage.getWidth())));
-            L2smr.getPrefs().put("l2smr.height", String.valueOf(Math.round(stage.getHeight())));
-        };
-        stage.xProperty().addListener(listener);
-        stage.yProperty().addListener(listener);
-        stage.widthProperty().addListener(listener);
-        stage.heightProperty().addListener(listener);
+        Platform.runLater(() -> {
+            InvalidationListener listener = observable -> {
+                if (stage.isMaximized()) {
+                    L2smr.windowPrefs().putBoolean("maximized", true);
+                } else {
+                    L2smr.windowPrefs().putBoolean("maximized", false);
+                    L2smr.windowPrefs().put("x", String.valueOf(Math.round(stage.getX())));
+                    L2smr.windowPrefs().put("y", String.valueOf(Math.round(stage.getY())));
+                    L2smr.windowPrefs().put("width", String.valueOf(Math.round(stage.getWidth())));
+                    L2smr.windowPrefs().put("height", String.valueOf(Math.round(stage.getHeight())));
+                }
+            };
+            stage.xProperty().addListener(listener);
+            stage.yProperty().addListener(listener);
+            stage.widthProperty().addListener(listener);
+            stage.heightProperty().addListener(listener);
+        });
     }
 
     private String readAppVersion() throws IOException, URISyntaxException {
@@ -108,7 +132,11 @@ public class L2smr extends Application {
     }
 
     static Preferences getPrefs() {
-        return Preferences.userRoot().node("l2smr");
+        return Preferences.userRoot().node("l2clientmod").node("l2smr");
+    }
+
+    private static Preferences windowPrefs() {
+        return getPrefs().node("window");
     }
 
     public static void main(String[] args) {
