@@ -442,7 +442,7 @@ public class StaticMeshActorUtil {
      * @return object ref
      * @throws IOException
      */
-    public static int addStaticMeshActor(UnrealPackage up, int staticMesh, String clazz, boolean rotating, boolean zoneState) throws UncheckedIOException {
+    public static int addStaticMeshActor(UnrealPackage up, int staticMesh, String clazz, boolean rotating, boolean zoneState, boolean oldFormat) throws UncheckedIOException {
         Map<String, Integer> names = new HashMap<>();
 //                "StaticMesh",
 //                //"Region", "Zone", "iLeaf", "ZoneNumber",
@@ -508,15 +508,18 @@ public class StaticMeshActorUtil {
         byte[] newBytes = new byte[levelBuffer.capacity() + compact.length];
 
         getCompactInt(levelBuffer);
-        levelBuffer.getInt();
-        int count = levelBuffer.getInt();
-        for (int i = 0; i < count; i++)
-            getCompactInt(levelBuffer);
+
+        if (!oldFormat) {
+            levelBuffer.getInt();
+            int count = levelBuffer.getInt();
+            for (int i = 0; i < count; i++)
+                getCompactInt(levelBuffer);
+        }
 
         int countPos = levelBuffer.position();
 
         levelBuffer.getInt();
-        count = levelBuffer.getInt();
+        int count = levelBuffer.getInt();
         for (int i = 0; i < count; i++)
             getCompactInt(levelBuffer);
 

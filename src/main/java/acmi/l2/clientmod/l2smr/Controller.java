@@ -85,6 +85,8 @@ public class Controller extends ControllerBase implements Initializable {
     @FXML
     private ComboBox<String> unrChooser;
     @FXML
+    private CheckBox oldFormat;
+    @FXML
     private TableView<Actor> table;
     @FXML
     private TableColumn<Actor, String> actorColumn;
@@ -604,7 +606,7 @@ public class Controller extends ControllerBase implements Initializable {
                 usx = usx.substring(0, usx.indexOf('.'));
                 try (UnrealPackage up = new UnrealPackage(new File(getMapsDir(), this.unrChooser.getSelectionModel().getSelectedItem()), false)) {
                     addStaticMeshToUnr(up);
-                    int actorInd = StaticMeshActorUtil.addStaticMeshActor(up, up.objectReferenceByName(usx + "." + this.smChooser.getSelectionModel().getSelectedItem(), c -> true), dlg.getActorClass(), rot, zrs) - 1;
+                    int actorInd = StaticMeshActorUtil.addStaticMeshActor(up, up.objectReferenceByName(usx + "." + this.smChooser.getSelectionModel().getSelectedItem(), c -> true), dlg.getActorClass(), rot, zrs, this.oldFormat.isSelected()) - 1;
 
                     Platform.runLater(() -> {
                         int ind = this.unrChooser.getSelectionModel().getSelectedIndex();
@@ -839,7 +841,7 @@ public class Controller extends ControllerBase implements Initializable {
                     for (int i = 0; i < map.getStaticMeshes().size(); i++) {
                         Actor actor = map.getStaticMeshes().get(i);
 
-                        int newActorInd = StaticMeshActorUtil.addStaticMeshActor(up, up.objectReferenceByName(actor.getStaticMesh(), c -> true), actor.getActorClass(), true, true);
+                        int newActorInd = StaticMeshActorUtil.addStaticMeshActor(up, up.objectReferenceByName(actor.getStaticMesh(), c -> true), actor.getActorClass(), true, true, oldFormat.isSelected());
                         UnrealPackage.ExportEntry newActor = (UnrealPackage.ExportEntry) up.objectReference(newActorInd);
 
                         actor.setActorName(newActor.getObjectInnerFullName());

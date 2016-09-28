@@ -26,7 +26,7 @@
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
-<AnchorPane xmlns="http://javafx.com/javafx/8.0.40" xmlns:fx="http://javafx.com/fxml/1"
+<AnchorPane xmlns="http://javafx.com/javafx/8.0.60" xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="acmi.l2.clientmod.l2smr.Controller">
     <children>
         <VBox maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="550.0"
@@ -60,7 +60,12 @@
                                 <Insets/>
                             </GridPane.margin>
                         </Label>
-                        <ComboBox fx:id="unrChooser" prefWidth="150.0" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+                        <HBox alignment="CENTER_LEFT" spacing="10.0" GridPane.columnIndex="1" GridPane.rowIndex="1">
+                            <children>
+                                <ComboBox fx:id="unrChooser" prefWidth="150.0"/>
+                                <CheckBox fx:id="oldFormat" mnemonicParsing="false" text="old format"/>
+                            </children>
+                        </HBox>
                     </children>
                     <opaqueInsets>
                         <Insets/>
