@@ -221,6 +221,9 @@ public class View3D implements Initializable {
                         return resolveMaterial(gameFolder, prop(entry, "Material"));
                     }
                 }
+            } catch (Exception e) {
+                System.err.println(String.format("Couldn't load material: %s[%s]", mat.getKey(), mat.getValue()));
+                e.printStackTrace();
             }
         }
 
