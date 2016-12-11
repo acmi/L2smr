@@ -283,6 +283,7 @@ public class Controller extends ControllerBase implements Initializable {
             unrChooser.getItems().addAll(Arrays
                     .stream(newValue.listFiles(MAP_FILE_FILTER))
                     .map(File::getName)
+                    .sorted(String.CASE_INSENSITIVE_ORDER)
                     .collect(Collectors.toList()));
 
             unrChooser.setDisable(false);
@@ -440,6 +441,7 @@ public class Controller extends ControllerBase implements Initializable {
             usxChooser.getItems().addAll(Arrays
                     .stream(newValue.listFiles(STATICMESH_FILE_FILTER))
                     .map(File::getName)
+                    .sorted(String.CASE_INSENSITIVE_ORDER)
                     .collect(Collectors.toList()));
             AutoCompleteComboBox.autoCompleteComboBox(usxChooser, AutoCompleteComboBox.AutoCompleteMode.CONTAINING);
         });
