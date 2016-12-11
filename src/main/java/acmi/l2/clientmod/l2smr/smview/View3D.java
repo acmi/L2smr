@@ -188,7 +188,7 @@ public class View3D implements Initializable {
                 });
     }
 
-    private static final String[] TEXTURE_FOLDER_NAMES = new String[]{"textures", "systextures"};
+    private static final String[] TEXTURE_FOLDER_NAMES = new String[]{"textures", "systextures", "staticmeshes"};
 
     private static BufferedImage resolveMaterial(File gameFolder, Pair<String, String> mat) {
         if (mat == null)
@@ -199,7 +199,7 @@ public class View3D implements Initializable {
             if (folder == null)
                 continue;
 
-            File pack = find(folder, nameFilter(mat.getKey().substring(0, mat.getKey().indexOf('.')) + ".utx"), File::isFile);
+            File pack = find(folder, nameFilter(mat.getKey().substring(0, mat.getKey().indexOf('.')), "utx", "usx"), File::isFile);
             if (pack == null)
                 continue;
 

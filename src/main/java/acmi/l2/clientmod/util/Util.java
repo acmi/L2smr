@@ -185,8 +185,13 @@ public class Util {
         return t;
     }
 
-    public static Predicate<File> nameFilter(String name) {
-        return f -> f.getName().equalsIgnoreCase(name);
+    public static Predicate<File> nameFilter(String name, String... extensions) {
+        if (extensions.length == 0)
+            return f -> f.getName().equalsIgnoreCase(name);
+
+        return f -> Arrays.stream(extensions)
+                .map(ext -> name + "." + ext)
+                .anyMatch(fn -> f.getName().equalsIgnoreCase(fn));
     }
 
     @SafeVarargs
